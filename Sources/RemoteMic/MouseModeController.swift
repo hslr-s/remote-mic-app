@@ -49,8 +49,8 @@ final class MouseModeController: ObservableObject {
             AppLogger.shared.write("MOUSE MODE phase=state result=off")
             return
         }
-        // 进入模式：先播种真实光标坐标（避免首步飞到原点），并立即显示指针圈。
-        injector.syncCursor()
+        // 进入模式：立即显示指针圈（光标位置由注入器每步从系统真实坐标读取，
+        // 无需在此播种，避免「跳回原处 / 飞到原点」）。
         cursorFeedback.handle(.pointerMoved(
             deltaX: 0, deltaY: 0,
             speed: Double(configuration.acceleration.baseStep)
@@ -69,18 +69,12 @@ final class MouseModeController: ObservableObject {
         case action(ConfiguredButtonAction)
     }
 
-    /// 返回 `.toggle`（应切换模式）或 `.action`（应执行鼠标动作），`nil` 表示不接管。
+    /// 返回 `.action`（应执行鼠标动作），`nil` 表示不接管（交由正常映射处理）。
+    ///
+    /// 进入 / 退出鼠标模式**只**由「按键映射」页绑定的「切换鼠标模式」动作触发
+    /// （见 `HIDRemoteMonitor.performConfiguredAction` 的前置检查），本控制器不再保留
+    /// 任何内置开关键，确保「按键映射」页是唯一权威来源。
     func resolve(_ button: RemoteButton, _ trigger: ButtonTrigger) -> Resolution? {
-        // 配置的开关键（默认 TV 单击）在总开关开启时作为遥控器进出模式的备用入口。
-        // 注：映射页绑定的「切换鼠标模式」由 `performConfiguredAction` 前置处理，
-        // 不受此处触发方式限制（单击/长按均可）。
-        if configuration.enabled, button == configuration.toggle.button {
-            let isToggleTrigger = trigger == configuration.toggle.trigger
-            guard isActive else {
-                return isToggleTrigger ? .toggle : nil
-            }
-            return isToggleTrigger ? .toggle : .action(ConfiguredButtonAction.disabled)
-        }
         guard isActive else { return nil }
         guard let action = MouseModeDefaults.binding(
             for: button,
@@ -190,6 +184,5 @@ final class MouseModeController: ObservableObject {
         releaseDebounce.removeAll()
         holdStart = nil
         pressing.removeAll()
-        injector.resetCursorTracking()
     }
 }

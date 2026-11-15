@@ -62,35 +62,31 @@ struct MouseModeTests {
         #expect(controller.resolve(.tv, .singleClick) == nil)
     }
 
-    @Test func resolveToggleKeyEntersModeWhenEnabledButInactive() {
+    @Test func resolveNoBuiltInToggleKey() {
         var config = MouseModeConfiguration()
         config.enabled = true
         config.toggle = MouseModeConfiguration.MouseModeToggle(button: .tv, trigger: .singleClick)
         let controller = MouseModeController()
         controller.apply(configuration: config)
-        // 启用但未进入：开关键单击进入模式；其非切换触发与其他键仍 passthrough。
-        #expect(controller.resolve(.tv, .singleClick) == .toggle)
+        // 进入 / 退出只由「按键映射」页的「切换鼠标模式」动作触发，不再有内置开关键：
+        // 未进入时完全 passthrough；进入后 TV 也只是普通键（由映射页决定）。
+        #expect(controller.resolve(.tv, .singleClick) == nil)
         #expect(controller.resolve(.tv, .doubleClick) == nil)
         #expect(controller.resolve(.up, .singleClick) == nil)
+        controller.setActive(true)
+        #expect(controller.resolve(.tv, .singleClick) == nil)
     }
 
-    @Test func resolveTogglesOnToggleKey() {
+    @Test func resolveActiveMouseButtonsMappedRegardlessOfToggleConfig() {
         var config = MouseModeConfiguration()
         config.enabled = true
         config.toggle = MouseModeConfiguration.MouseModeToggle(button: .tv, trigger: .singleClick)
         let controller = MouseModeController()
         controller.apply(configuration: config)
         controller.setActive(true)
-
-        #expect(controller.resolve(.tv, .singleClick) == .toggle)
-
-        // 激活时，开关键的「非切换触发」被吞掉（disabled），不执行普通动作。
-        let other = controller.resolve(.tv, .doubleClick)
-        guard case .action(let configured) = other else {
-            #expect(false, "expected action(disabled) for non-toggle trigger")
-            return
-        }
-        #expect(configured.action == .disabled)
+        // 激活时 TV 不再被特殊对待（不吞、不切换），由映射页决定；鼠标按键仍按固定映射。
+        #expect(controller.resolve(.tv, .singleClick) == nil)
+        #expect(controller.resolve(.ok, .singleClick) == .action(ConfiguredButtonAction(action: .mouseLeftClick, shortcut: nil)))
     }
 
     @Test func nonToggleKeyDoesNotToggleWhenInactive() {

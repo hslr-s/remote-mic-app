@@ -50,26 +50,6 @@ struct MouseModeSettingsView: View {
             Text(localization.text("mouse_mode.toggle.subtitle"))
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
-            HStack(spacing: 16) {
-                Picker(selection: config.toggle.button) {
-                    ForEach(RemoteButton.allCases, id: \.self) { button in
-                        Text(remoteButtonName(button)).tag(button)
-                    }
-                } label: {
-                    Text(localization.text("mouse_mode.toggle.button"))
-                        .font(.system(size: 13))
-                }
-                .frame(minWidth: 160)
-                Picker(selection: config.toggle.trigger) {
-                    ForEach(ButtonTrigger.allCases, id: \.self) { trigger in
-                        Text(buttonTriggerName(trigger)).tag(trigger)
-                    }
-                } label: {
-                    Text(localization.text("mouse_mode.toggle.trigger"))
-                        .font(.system(size: 13))
-                }
-                .frame(minWidth: 140)
-            }
         }
     }
 

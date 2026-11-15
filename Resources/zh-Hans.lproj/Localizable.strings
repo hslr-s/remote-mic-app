@@ -349,8 +349,8 @@
 "mouse_mode.page.subtitle" = "用方向键移动指针、确认键左键、菜单键右键、音量键滚轮。开启后可一键进出。";
 "mouse_mode.enable.title" = "启用鼠标模式";
 "mouse_mode.enable.help" = "关闭时所有按键保持原有行为，不影响稳定功能。";
-"mouse_mode.toggle.title" = "启用 / 退出键";
-"mouse_mode.toggle.subtitle" = "选择某个遥控按键与触发方式：按下即进入鼠标模式，再次按下退出。该键在模式下保留切换用途，不可改映射。";
+"mouse_mode.toggle.title" = "进入 / 退出";
+"mouse_mode.toggle.subtitle" = "不再单独设键。请在「按键映射」中给任意键绑定「切换鼠标模式」动作：按下进入鼠标模式，再按一次退出。绑定以「按键映射」页面为准。";
 "mouse_mode.toggle.button" = "按键";
 "mouse_mode.toggle.trigger" = "触发方式";
 "mouse_mode.scroll.title" = "滚轮";

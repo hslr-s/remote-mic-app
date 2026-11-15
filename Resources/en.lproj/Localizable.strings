@@ -349,8 +349,8 @@
 "mouse_mode.page.subtitle" = "Use the direction keys to move the pointer, the OK key as left click, the menu key as right click, and volume keys as the scroll wheel. Toggle in and out with one key.";
 "mouse_mode.enable.title" = "Enable Mouse Mode";
 "mouse_mode.enable.help" = "When off, every button keeps its original behavior and stable features are unaffected.";
-"mouse_mode.toggle.title" = "Toggle Key";
-"mouse_mode.toggle.subtitle" = "Pick a remote button and trigger: press to enter mouse mode, press again to exit. This key stays reserved for toggling and cannot be remapped.";
+"mouse_mode.toggle.title" = "Enter / Exit";
+"mouse_mode.toggle.subtitle" = "No dedicated key here. In \"Button Mapping\", bind any button to the \"Toggle Mouse Mode\" action: press to enter, press again to exit. The mapping page is the single source of truth.";
 "mouse_mode.toggle.button" = "Button";
 "mouse_mode.toggle.trigger" = "Trigger";
 "mouse_mode.scroll.title" = "Scroll Wheel";
