@@ -153,6 +153,34 @@ struct MouseModeTests {
         #expect(controller.edge(.menu, .press) == false)
     }
 
+    /// 回归：方向键 press 被 mouseModeEdgeHandler 消费后不会创建 Interaction，
+    /// 所以 isTracking(button) 恒为 false。调用方（HIDRemoteMonitor 的 release 分支）
+    /// 必须在 isTracking 门控之外独立把 release 交给同一个 edge handler，
+    /// 否则 pressing 永不清空、加速定时器永不停——光标一按就冲到屏幕边缘。
+    @Test func consumedEdgePressLeavesNoInteractionButReleaseIsStillAccepted() {
+        let controller = RemoteButtonInteractionController(scheduler: DispatchHIDRemoteScheduler())
+        var edgeReleases: [RemoteButton] = []
+        controller.mouseModeEdgeHandler = { (button: RemoteButton, phase: RemoteButtonPhase) in
+            if phase == .release { edgeReleases.append(button) }
+            return true // 模拟鼠标模式激活且该键是方向键：press / release 都被消费
+        }
+        let snapshot = RemoteButtonInteractionSnapshot(
+            settings: .init(), mode: .once,
+            single: .init(action: .mouseMoveUp, shortcut: nil),
+            double: .init(action: .disabled, shortcut: nil),
+            long: .init(action: .disabled, shortcut: nil),
+            allowsKeyHold: true
+        )
+        controller.handle(.press, button: .up, snapshot: snapshot, valid: { true },
+                          perform: { _, _ in true })
+        #expect(!controller.isTracking(.up)) // 消费路径没有创建 Interaction
+
+        // 调用方独立转发 release（修复后的 HIDRemoteMonitor 行为）。
+        let accepted = controller.mouseModeEdgeHandler?(.up, .release) == true
+        #expect(accepted)
+        #expect(edgeReleases == [.up])
+    }
+
     @Test func buttonActionCategoryIsSystemAndMedia() {
         #expect(ButtonAction.mouseMoveUp.category == .systemAndMedia)
         #expect(ButtonAction.mouseLeftClick.category == .systemAndMedia)

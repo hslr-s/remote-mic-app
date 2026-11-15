@@ -60,6 +60,8 @@
 ## 失败判定
 
 - 进入模式后指针不动 / 方向反了 / 加速不触发或不停止。
+- 按一次方向键光标持续冲到屏幕边缘、到边缘后方向键失效（释放未送达的典型症状）。
+- 日志出现 `edge=press` 但松键后没有 `edge=release` / `phase=move_stopped`。
 - 切换键不按绑定槽位判定（单击误切换、双击不切换）。
 - 菜单双击 / 长按被错误固定成右键，无法走映射页自定义。
 - 鼠标模式页占用槽位未置灰加锁、未占用槽位不显示映射页设置，或点击竟可编辑。
@@ -75,6 +77,8 @@
 ## 日志收集
 
 - 鼠标相关事件见控制台 `MOUSE MODE phase=...` 与既有 `HID BUTTON ...` 日志；脱敏，不含坐标与窗口标题。
+- 方向键移动链路：`phase=edge button=<键> edge=press/release pressing=<数量>`、`phase=move_stopped reason=release_debounce|mode_off`、
+  `phase=action button=<键> action=<动作>`。排查“一按冲到边缘”时，先确认松键有对应 `edge=release` 且随后出现 `move_stopped`。
 
 ## 验证边界
 

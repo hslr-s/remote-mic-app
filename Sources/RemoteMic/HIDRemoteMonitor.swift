@@ -1649,6 +1649,16 @@ final class HIDRemoteMonitor {
                 if onRuntimeButton?(profileID, button, .release, reportMilliseconds) == true {
                     continue
                 }
+                // 鼠标模式的方向键 press 在 RemoteButtonInteraction.handle 里被
+                // mouseModeEdgeHandler 消费后直接 return，不会创建 Interaction，
+                // 因此下面 isTracking(button) 对它恒为 false，release 永远送不到
+                // MouseModeController.edge(.release)：pressing 不清空、加速定时器不停，
+                // 光标一按就持续冲到屏幕边缘（真实鼠标移回中间才看似恢复）。
+                // 这里在 isTracking 门控之前把 release 交给同一个 edge handler。
+                if buttonInteractions.mouseModeEdgeHandler?(button, .release) == true {
+                    scheduleNonRepeatableRelease(for: button)
+                    continue
+                }
                 if buttonInteractions.isTracking(button) {
                     buttonInteractions.handle(.release, button: button,
                         snapshot: settings.interactionSnapshot(for: button, profileID: profileID),

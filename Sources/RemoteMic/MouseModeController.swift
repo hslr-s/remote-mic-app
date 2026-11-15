@@ -45,7 +45,7 @@ final class MouseModeController: ObservableObject {
         guard isActive != active else { return }
         isActive = active
         if !active {
-            stopAllMovement()
+            stopAllMovement(reason: "mode_off")
             // 退出立即隐藏光标反馈圈，不等它自己的 idle 超时（此前圈会滞留）。
             cursorFeedback.cancelInteraction(reason: "mouse_mode_off")
             AppLogger.shared.write("MOUSE MODE phase=state result=off")
@@ -114,17 +114,24 @@ final class MouseModeController: ObservableObject {
             injector.move(button, step: step)
             cursorFeedback.handle(.pointerMoved(deltaX: 0, deltaY: 0, speed: Double(step)))
             beginAccelerationIfNeeded()
+            AppLogger.shared.write(
+                "MOUSE MODE phase=edge button=\(button.rawValue) edge=press step=\(step) " +
+                    "pressing=\(pressing.count) accel_running=\(accelSource != nil)"
+            )
             return true
         case .release:
             // 暂移出「按住集合」，但若 80ms 内再次按下（自动重复）则忽略此次松开，
             // 连续定时器不被打断；真正松开（无后续按下）才停止全部移动。
             pressing.remove(button)
+            AppLogger.shared.write(
+                "MOUSE MODE phase=edge button=\(button.rawValue) edge=release pressing=\(pressing.count)"
+            )
             guard pressing.isEmpty else { return true }
             let item = DispatchWorkItem { [weak self] in
                 guard let self else { return }
                 self.releaseDebounce.removeValue(forKey: button)
                 guard self.pressing.isEmpty else { return }
-                self.stopAllMovement()
+                self.stopAllMovement(reason: "release_debounce")
             }
             releaseDebounce[button] = item
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: item)
@@ -189,12 +196,16 @@ final class MouseModeController: ObservableObject {
         cursorFeedback.handle(.pointerMoved(deltaX: 0, deltaY: 0, speed: Double(step)))
     }
 
-    private func stopAllMovement() {
+    private func stopAllMovement(reason: String) {
+        let wasRunning = accelSource != nil
         accelSource?.cancel()
         accelSource = nil
         releaseDebounce.values.forEach { $0.cancel() }
         releaseDebounce.removeAll()
         holdStart = nil
         pressing.removeAll()
+        if wasRunning {
+            AppLogger.shared.write("MOUSE MODE phase=move_stopped reason=\(reason)")
+        }
     }
 }
