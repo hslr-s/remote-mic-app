@@ -46,6 +46,8 @@ final class MouseModeController: ObservableObject {
         isActive = active
         if !active {
             stopAllMovement()
+            // 退出立即隐藏光标反馈圈，不等它自己的 idle 超时（此前圈会滞留）。
+            cursorFeedback.cancelInteraction(reason: "mouse_mode_off")
             AppLogger.shared.write("MOUSE MODE phase=state result=off")
             return
         }
@@ -97,10 +99,14 @@ final class MouseModeController: ObservableObject {
         switch phase {
         case .press:
             // 取消该键可能挂起的「停止」任务：自动重复（按-放-按）被合并为持续按住。
+            let wasIdle = pressing.isEmpty
             releaseDebounce[button]?.cancel()
             releaseDebounce.removeValue(forKey: button)
             pressing.insert(button)
-            if holdStart == nil { holdStart = Date() }
+            // 新一轮按下（此前无方向键按住）必须从当前时刻重新计时。
+            // 若沿用异常残留的旧 holdStart，held 会很大，步长直接顶到 maxStep，
+            // 表现为「刚进模式按一下就飞到屏幕边缘」。
+            if wasIdle || holdStart == nil { holdStart = Date() }
             // 首次按下：只走一步，实现精确的离散控制。
             let step = configuration.acceleration.baseStep
             injector.move(button, step: step)
@@ -154,7 +160,11 @@ final class MouseModeController: ObservableObject {
     private func beginAccelerationIfNeeded() {
         guard accelSource == nil else { return }
         let interval = Double(configuration.acceleration.stepInterval) / 1000.0
-        let src = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .userInteractive))
+        // 关键：定时器回调必须在主线程执行，与 edge()/stopAllMovement()/release 防抖
+        // 串行访问 pressing、holdStart、accelSource，消除跨线程竞态。
+        // 竞态曾导致 tick 有时读到空 pressing（长按不持续），有时读到残留的旧 holdStart
+        // 使步长直接顶到 maxStep（按一下就飞到屏幕边缘）。
+        let src = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
         src.schedule(deadline: .now() + interval, repeating: interval)
         src.setEventHandler { [weak self] in self?.accelTick() }
         src.resume()

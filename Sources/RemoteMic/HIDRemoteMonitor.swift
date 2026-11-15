@@ -1520,6 +1520,23 @@ final class HIDRemoteMonitor {
                 continue
             }
 
+            // 「切换鼠标模式」键：在物理按下边沿立即切换并吞掉这次 press，
+            // 绕过单击/双击/长按手势判定、stable-release 闩锁，以及鼠标模式下的固定映射
+            // （如「菜单 = 右键」）。绑定以「按键映射」页为准，任意 trigger 绑定都认。
+            // 这样保证第一次按下就触发、每次都触发、进入/退出都不被屏蔽。
+            let isMouseModeToggleKey = ButtonTrigger.allCases.contains { trigger in
+                settings.configuredAction(
+                    for: button, trigger: trigger, profileID: profileID
+                ).action == .mouseModeToggle
+            }
+            if isMouseModeToggleKey {
+                MouseModeController.shared.toggle()
+                AppLogger.shared.write(
+                    "MOUSE MODE phase=toggle button=\(button.rawValue) trigger=press_edge source=mapping"
+                )
+                continue
+            }
+
             // Discovery may associate an existing configured device during the callback.
             let hasSingleClickOverride = settings.configuredActionOverride?(
                 profileID, button, .singleClick
