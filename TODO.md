@@ -13,6 +13,7 @@
   - 待完成：本地 `swift build`/`swift test` 验证、设置页中英文浅/深色截图、真实遥控器 + 蓝牙 + 辅助功能实机验收。v2（独立计划）再开放「任意键映射到任意鼠标动作」编辑。
   - 2026-11-15 增量（`feature/mouse-mode`）：按用户要求移除「启用鼠标模式」开关，进入/退出只由「按键映射」页绑定的「切换鼠标模式」决定（绑了就能用，无需额外开关）；旧配置中的 `enabled` 字段由 Codable 忽略，无迁移负担。
   - 2026-11-15 增量（`feature/mouse-mode`）：修复方向键 release 未送达导致的「一按冲到屏幕边缘」根因（见 `Bugs/2026-11-15-mouse-mode-press-runs-to-screen-edge.md`）；修复按左键后蓝色反馈圈消失（反馈圈在鼠标模式下改为常驻模式指示器，见 `Bugs/2026-11-15-mouse-mode-feedback-ring-disappears-after-click.md`）；新增光标外环圈颜色配置（`cursorRingColorHex`，nil=跟随系统，预设色板 + ColorPicker，仅影响鼠标模式指示圈）。相关单元测试与离屏截图已过，实机验收仍待完成。
+  - 2026-11-15 新功能（`feature/custom-modes` 分支）：自定义模式——可创建任意多按键配置模式，每模式独立绑定表（未设置槽位回退普通映射）+ 独立切换键 + 可选彩色模式指示圈（区分模式）；与鼠标模式互斥，鼠标模式行为不变。新增 `CustomMode`/`CustomModeController`/`CustomModesSettingsView`/`CustomModeActionPicker`；配置存 `AppSettings.customModeConfiguration`（独立 key，不参与导出校验）。`CustomModeTests` 11 项通过，浅色中文/深色英文截图已核。实机验收（切换、映射生效、互斥、指示圈）待完成。
 
 - [ ] 状态菜单显示已连接遥控器的电量（#860）
   - 已实现。2026-11-05 使用小米蓝牙遥控器 2 Pro 实测，菜单和连接页均为 94%，连续打开两次各显示一行。未知读数、断开及多设备已由自动化覆盖，菜单外观截图待补。详见 `Testing/MenuBarVisibility.md` 用例 6。

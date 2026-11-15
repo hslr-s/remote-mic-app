@@ -215,6 +215,15 @@ final class HIDRemoteMonitor {
     var mouseModeResolver: ((UUID?, RemoteButton, ButtonTrigger) -> MouseModeController.Resolution?)? = {
         _, button, trigger in MouseModeController.shared.resolve(button, trigger)
     }
+
+    /// 自定义模式薄 hook：切换键匹配返回目标模式 ID，非切换键返回 nil。
+    var customModeToggleResolver: ((RemoteButton, ButtonTrigger) -> UUID?)? = {
+        CustomModeController.shared.toggleModeID(for: $0, trigger: $1)
+    }
+    /// 自定义模式激活时，槽位内的动作覆盖普通映射；未设置返回 nil 走原映射。
+    var customModeActionResolver: ((RemoteButton, ButtonTrigger) -> ConfiguredButtonAction?)? = {
+        CustomModeController.shared.resolvedAction(for: $0, trigger: $1)
+    }
     private let holdBeginPerformer: (ConfiguredButtonAction) -> Bool
     private let holdEndPerformer: (String) -> Void
     /// 解析该按键当前生效的单击与长按动作：方案覆盖优先，其次基础映射。
@@ -2108,6 +2117,29 @@ final class HIDRemoteMonitor {
             )
             return true
         }
+        // 自定义模式切换键：绑定存在模式配置里而非映射页，必须先于普通映射拦截。
+        // 切换模式与鼠标模式互斥：进入任一自定义模式都先退出鼠标模式。
+        if let targetModeID = customModeToggleResolver?(button, trigger) {
+            MouseModeController.shared.setActive(false)
+            CustomModeController.shared.toggle(modeID: targetModeID)
+            AppLogger.shared.write(
+                "CUSTOM MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue) mode_id=\(targetModeID.uuidString)"
+            )
+            return true
+        }
+        // 自定义模式内的槽位绑定覆盖普通映射；未设置的槽位继续走下面的原逻辑。
+        if let modeAction = customModeActionResolver?(button, trigger) {
+            let normalized = modeAction.normalizedForExecution
+            if normalized.action.isAppInternal {
+                onInternalAction?(profileID, normalized.action)
+            } else {
+                _ = actionPerformer(button, trigger, normalized)
+            }
+            AppLogger.shared.write(
+                "CUSTOM MODE phase=action button=\(button.rawValue) trigger=\(trigger.rawValue) action=\(normalized.action.rawValue)"
+            )
+            return true
+        }
         // 唯一的动作来源：手势捕获到的绑定优先，否则按当前 trigger 查映射页。
         // 后续所有动作（含切换鼠标模式）都只依据这一份 configured 判定，
         // 保证「映射页配什么、按键就做什么」——单击是单击、双击是双击，任何键一视同仁。
@@ -2117,6 +2149,8 @@ final class HIDRemoteMonitor {
             profileID: profileID
         )
         if configured.action == .mouseModeToggle {
+            // 进入鼠标模式前退出自定义模式，保持两者互斥。
+            CustomModeController.shared.deactivate(reason: "mouse_mode_toggle")
             MouseModeController.shared.toggle()
             AppLogger.shared.write(
                 "MOUSE MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue) source=mapping"

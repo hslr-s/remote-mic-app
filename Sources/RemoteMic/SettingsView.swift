@@ -32,7 +32,9 @@ struct SettingsSection: RawRepresentable, Hashable, CaseIterable, Identifiable {
     static let about = SettingsSection(rawValue: "about")
     /// 鼠标模式：独立侧栏分区，不进入动作分类筛选。
     static let mouseMode = SettingsSection(rawValue: "mouseMode")
-    static let allCases: [SettingsSection] = [.connection, .privateFeature, .macros, .buttonProfiles, .membership, .mapping, .applications, .statistics, .transcripts, .commonPhrases, .permissions, .about, .mouseMode]
+    /// 自定义模式：用户可新建的按键映射模式，独立侧栏分区。
+    static let customModes = SettingsSection(rawValue: "customModes")
+    static let allCases: [SettingsSection] = [.connection, .privateFeature, .macros, .buttonProfiles, .membership, .mapping, .applications, .statistics, .transcripts, .commonPhrases, .permissions, .about, .mouseMode, .customModes]
     static func supplemental(_ id: String) -> SettingsSection { SettingsSection(rawValue: "supplemental:" + id) }
     var supplementalID: String? { rawValue.hasPrefix("supplemental:") ? String(rawValue.dropFirst(13)) : nil }
     var id: String { rawValue }
@@ -52,6 +54,7 @@ struct SettingsSection: RawRepresentable, Hashable, CaseIterable, Identifiable {
         case .permissions: return "settings.section.permissions"
         case .about: return "settings.section.settings"
         case .mouseMode: return "settings.section.mouse_mode"
+        case .customModes: return "settings.section.custom_modes"
         default: return ""
         }
     }
@@ -75,6 +78,7 @@ struct SettingsSection: RawRepresentable, Hashable, CaseIterable, Identifiable {
         case .permissions: return "shield.lefthalf.filled"
         case .about: return "gearshape"
         case .mouseMode: return "cursorarrow"
+        case .customModes: return "square.stack.3d.up"
         default: return "square"
         }
     }
@@ -213,6 +217,7 @@ enum SettingsPageBehavior {
         .connection,
         .transcripts,
         .privateFeature,
+        .customModes,
         .about,
         .statistics,
     ]
@@ -1248,6 +1253,8 @@ struct SettingsView: View {
             aboutPage
         case .mouseMode:
             mouseModePage
+        case .customModes:
+            customModesPage
         case .about:
             aboutPage
                 .task(id: buttonProfileImportRequests.pendingRequest?.operationID) {
@@ -4935,6 +4942,10 @@ struct SettingsView: View {
         MouseModeSettingsView(settings: settings, localization: localization)
     }
 
+    private var customModesPage: some View {
+        CustomModesSettingsView(settings: settings, localization: localization)
+    }
+
     private var applicationsPage: some View {
         settingsPage {
             VStack(alignment: .leading, spacing: 6) {
@@ -7100,6 +7111,7 @@ struct SettingsView: View {
         case .buttonProfiles: macroFeature.buttonProfilesSectionTitle
         case .membership: membershipFeature.sectionTitle
         case .mouseMode: localization.text("settings.section.mouse_mode")
+        case .customModes: localization.text("settings.section.custom_modes")
         default: supplementalPages.first { SettingsSection.supplemental($0.id) == section }?.title ?? ""
         }
     }

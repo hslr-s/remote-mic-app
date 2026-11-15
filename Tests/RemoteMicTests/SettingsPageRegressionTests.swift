@@ -2213,6 +2213,7 @@ struct SettingsPageRegressionTests {
             .connection,
             .transcripts,
             .privateFeature,
+            .customModes,
             .about,
             .statistics,
         ])
