@@ -155,7 +155,6 @@ struct CustomModesSettingsView: View {
         VStack(alignment: .leading, spacing: 18) {
             basicSection(mode)
             indicatorSection(mode)
-            toggleSection(mode)
             mappingSection(mode)
         }
     }
@@ -216,37 +215,6 @@ struct CustomModesSettingsView: View {
         }
     }
 
-    private func toggleSection(_ mode: CustomMode) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle(localization.text("custom_mode.toggle.title"))
-            Text(localization.text("custom_mode.toggle.subtitle"))
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 12) {
-                Picker(localization.text("custom_mode.toggle.button"), selection: toggleButtonBinding(mode)) {
-                    ForEach(RemoteButton.allCases) { button in
-                        Text(button.displayName(using: localization)).tag(button as RemoteButton?)
-                    }
-                }
-                .frame(maxWidth: 200)
-                Picker(localization.text("custom_mode.toggle.trigger"), selection: toggleTriggerBinding(mode)) {
-                    ForEach(ButtonTrigger.allCases) { trigger in
-                        Text(trigger.displayName(using: localization)).tag(trigger as ButtonTrigger?)
-                    }
-                }
-                .frame(maxWidth: 180)
-            }
-            if let toggle = mode.toggle,
-               let conflict = conflictingModeID(mode, toggle: toggle) {
-                Text(localization.text("custom_mode.toggle.conflict"))
-                    .font(.system(size: 12))
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
     private func mappingSection(_ mode: CustomMode) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionTitle(localization.text("custom_mode.mapping.title"))
@@ -272,9 +240,6 @@ struct CustomModesSettingsView: View {
     // MARK: - 槽位展示
 
     private func slotSummary(mode: CustomMode, button: RemoteButton, trigger: ButtonTrigger) -> String {
-        if let toggle = mode.toggle, toggle.button == button, toggle.trigger == trigger {
-            return localization.text("custom_mode.toggle.slot")
-        }
         if let configured = mode.action(for: button, trigger: trigger),
            configured.action != .disabled {
             return configured.action.displayName(using: localization)
@@ -316,12 +281,6 @@ struct CustomModesSettingsView: View {
         config.modes.wrappedValue[index].indicatorColorHex = hex
     }
 
-    private func conflictingModeID(_ mode: CustomMode, toggle: CustomModeToggle) -> UUID? {
-        modes.first { other in
-            other.id != mode.id && other.toggle?.button == toggle.button && other.toggle?.trigger == toggle.trigger
-        }?.id
-    }
-
     // MARK: - Bindings
 
     private func nameBinding(_ mode: CustomMode) -> Binding<String> {
@@ -352,32 +311,6 @@ struct CustomModesSettingsView: View {
                     MouseModeConfiguration.cursorRingHexString(from: NSColor(newColor)),
                     modeID: mode.id
                 )
-            }
-        )
-    }
-
-    private func toggleButtonBinding(_ mode: CustomMode) -> Binding<RemoteButton?> {
-        Binding(
-            get: { mode.toggle?.button },
-            set: { button in
-                guard let index = config.modes.wrappedValue.firstIndex(where: { $0.id == mode.id }) else { return }
-                let trigger = mode.toggle?.trigger ?? .singleClick
-                config.modes.wrappedValue[index].toggle = button.map {
-                    CustomModeToggle(button: $0, trigger: trigger)
-                }
-            }
-        )
-    }
-
-    private func toggleTriggerBinding(_ mode: CustomMode) -> Binding<ButtonTrigger?> {
-        Binding(
-            get: { mode.toggle?.trigger },
-            set: { trigger in
-                guard let index = config.modes.wrappedValue.firstIndex(where: { $0.id == mode.id }) else { return }
-                let button = mode.toggle?.button ?? .ok
-                config.modes.wrappedValue[index].toggle = trigger.map {
-                    CustomModeToggle(button: button, trigger: $0)
-                }
             }
         )
     }

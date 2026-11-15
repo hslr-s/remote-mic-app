@@ -216,11 +216,8 @@ final class HIDRemoteMonitor {
         _, button, trigger in MouseModeController.shared.resolve(button, trigger)
     }
 
-    /// 自定义模式薄 hook：切换键匹配返回目标模式 ID，非切换键返回 nil。
-    var customModeToggleResolver: ((RemoteButton, ButtonTrigger) -> UUID?)? = {
-        CustomModeController.shared.toggleModeID(for: $0, trigger: $1)
-    }
-    /// 自定义模式激活时，槽位内的动作覆盖普通映射；未设置返回 nil 走原映射。
+    /// 自定义模式薄 hook：模式激活时，槽位内的动作覆盖普通映射；未设置返回 nil 走原映射。
+    /// 「切换模式」动作本身配在普通映射里，和「切换鼠标模式」一样走下面的 configured 分发。
     var customModeActionResolver: ((RemoteButton, ButtonTrigger) -> ConfiguredButtonAction?)? = {
         CustomModeController.shared.resolvedAction(for: $0, trigger: $1)
     }
@@ -2117,19 +2114,38 @@ final class HIDRemoteMonitor {
             )
             return true
         }
-        // 自定义模式切换键：绑定存在模式配置里而非映射页，必须先于普通映射拦截。
-        // 切换模式与鼠标模式互斥：进入任一自定义模式都先退出鼠标模式。
-        if let targetModeID = customModeToggleResolver?(button, trigger) {
+        // 唯一的动作来源，优先级：自定义模式内绑定 > 手势捕获 > 映射页普通绑定。
+        // 所有动作（含切换模式、切换鼠标模式）都只依据这一份 configured 判定，
+        // 保证「映射页配什么、按键就做什么」——单击是单击、双击是双击，任何键一视同仁。
+        // 切换模式就配在映射页里，和「切换鼠标模式」完全同一套机制。
+        let configured = customModeActionResolver?(button, trigger)
+            ?? captured
+            ?? settings.configuredAction(for: button, trigger: trigger, profileID: profileID)
+        if configured.action == .customModeToggle {
+            // 切换目标由动作载荷携带；模式被删导致目标缺失时不切换，记日志后吞掉。
+            guard let modeID = configured.modeID else {
+                diagnosticLogger("CUSTOM MODE toggle skipped reason=missing_mode_id")
+                return true
+            }
             MouseModeController.shared.setActive(false)
-            CustomModeController.shared.toggle(modeID: targetModeID)
+            CustomModeController.shared.toggle(modeID: modeID)
             AppLogger.shared.write(
-                "CUSTOM MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue) mode_id=\(targetModeID.uuidString)"
+                "CUSTOM MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue) mode_id=\(modeID.uuidString) source=mapping"
             )
             return true
         }
-        // 自定义模式内的槽位绑定覆盖普通映射；未设置的槽位继续走下面的原逻辑。
-        if let modeAction = customModeActionResolver?(button, trigger) {
-            let normalized = modeAction.normalizedForExecution
+        if configured.action == .mouseModeToggle {
+            // 进入鼠标模式前退出自定义模式，保持两者互斥。
+            CustomModeController.shared.deactivate(reason: "mouse_mode_toggle")
+            MouseModeController.shared.toggle()
+            AppLogger.shared.write(
+                "MOUSE MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue) source=mapping"
+            )
+            return true
+        }
+        // 自定义模式内的槽位动作：走与普通动作相同的 isAppInternal / actionPerformer 分发。
+        if customModeActionResolver?(button, trigger) != nil {
+            let normalized = configured.normalizedForExecution
             if normalized.action.isAppInternal {
                 onInternalAction?(profileID, normalized.action)
             } else {
@@ -2137,23 +2153,6 @@ final class HIDRemoteMonitor {
             }
             AppLogger.shared.write(
                 "CUSTOM MODE phase=action button=\(button.rawValue) trigger=\(trigger.rawValue) action=\(normalized.action.rawValue)"
-            )
-            return true
-        }
-        // 唯一的动作来源：手势捕获到的绑定优先，否则按当前 trigger 查映射页。
-        // 后续所有动作（含切换鼠标模式）都只依据这一份 configured 判定，
-        // 保证「映射页配什么、按键就做什么」——单击是单击、双击是双击，任何键一视同仁。
-        let configured = captured ?? settings.configuredAction(
-            for: button,
-            trigger: trigger,
-            profileID: profileID
-        )
-        if configured.action == .mouseModeToggle {
-            // 进入鼠标模式前退出自定义模式，保持两者互斥。
-            CustomModeController.shared.deactivate(reason: "mouse_mode_toggle")
-            MouseModeController.shared.toggle()
-            AppLogger.shared.write(
-                "MOUSE MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue) source=mapping"
             )
             return true
         }

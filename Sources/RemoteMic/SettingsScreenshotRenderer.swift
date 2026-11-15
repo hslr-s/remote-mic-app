@@ -247,8 +247,7 @@ enum SettingsScreenshotRenderer {
             var demo = CustomMode(
                 name: language == .english ? "Reading" : "阅读模式",
                 showsIndicator: true,
-                indicatorColorHex: "30D158",
-                toggle: CustomModeToggle(button: .menu, trigger: .doubleClick)
+                indicatorColorHex: "30D158"
             )
             demo.setAction(ConfiguredButtonAction(action: .pageDown, shortcut: nil),
                            for: .down, trigger: .singleClick)

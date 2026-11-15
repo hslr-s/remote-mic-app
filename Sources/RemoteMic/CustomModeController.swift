@@ -19,21 +19,6 @@ final class CustomModeController: ObservableObject {
         return configuration.modes.first { $0.id == activeModeID }
     }
 
-    /// 纯判定：给定按键 + 触发，返回应切换到的模式 ID。
-    /// 多个模式配了同一槽位时取第一个，避免歧义（UI 会提示冲突）。
-    static func toggleTarget(
-        in modes: [CustomMode],
-        button: RemoteButton,
-        trigger: ButtonTrigger
-    ) -> UUID? {
-        for mode in modes {
-            guard let toggle = mode.toggle,
-                  toggle.button == button, toggle.trigger == trigger else { continue }
-            return mode.id
-        }
-        return nil
-    }
-
     /// 由 `AppSettings` 在加载与每次修改后推送。
     func apply(configuration: CustomModeConfiguration) {
         self.configuration = configuration
@@ -69,11 +54,6 @@ final class CustomModeController: ObservableObject {
         activeModeID = nil
         cursorFeedback.setModeIndicatorPinned(false, reason: "custom_mode_\(reason)")
         AppLogger.shared.write("CUSTOM MODE phase=state result=off reason=\(reason)")
-    }
-
-    /// 给定按键 + 触发是否有模式把它设为切换键。
-    func toggleModeID(for button: RemoteButton, trigger: ButtonTrigger) -> UUID? {
-        Self.toggleTarget(in: configuration.modes, button: button, trigger: trigger)
     }
 
     /// 当前模式的槽位绑定；未设置返回 nil，由调用方回退到普通映射。

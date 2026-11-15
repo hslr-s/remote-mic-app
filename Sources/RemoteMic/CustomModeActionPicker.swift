@@ -17,7 +17,7 @@ struct ActionPickerSheet: View {
 
     private static let excluded: Set<ButtonAction> = [
         .customShortcut, .combinationAction, .openCustomApplication,
-        .openCommonPhrases, .toggleLongRecording,
+        .openCommonPhrases, .toggleLongRecording, .customModeToggle, .mouseModeToggle,
     ]
     private var availableActions: [ButtonAction] {
         ButtonAction.allCases.filter { !Self.excluded.contains($0) }

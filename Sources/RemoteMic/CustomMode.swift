@@ -13,8 +13,6 @@ struct CustomMode: Codable, Identifiable, Equatable {
     var showsIndicator: Bool
     /// 指示圈颜色（RRGGBB，不含 `#`）；`nil` 跟随系统强调色。
     var indicatorColorHex: String?
-    /// 切换到本模式的按键 + 触发。未配置时该模式只能由其他模式的绑定进入。
-    var toggle: CustomModeToggle?
     /// 该模式独立的一套绑定。
     var bindings: [CustomModeBinding]
 
@@ -23,19 +21,17 @@ struct CustomMode: Codable, Identifiable, Equatable {
         name: String,
         showsIndicator: Bool = true,
         indicatorColorHex: String? = nil,
-        toggle: CustomModeToggle? = nil,
         bindings: [CustomModeBinding] = []
     ) {
         self.id = id
         self.name = name
         self.showsIndicator = showsIndicator
         self.indicatorColorHex = indicatorColorHex
-        self.toggle = toggle
         self.bindings = bindings
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, showsIndicator, indicatorColorHex, toggle, bindings
+        case id, name, showsIndicator, indicatorColorHex, bindings
     }
 
     init(from decoder: Decoder) throws {
@@ -45,7 +41,6 @@ struct CustomMode: Codable, Identifiable, Equatable {
         // 旧配置缺这些字段时给合理默认值，保证 schema 演进可读。
         showsIndicator = try container.decodeIfPresent(Bool.self, forKey: .showsIndicator) ?? true
         indicatorColorHex = try container.decodeIfPresent(String.self, forKey: .indicatorColorHex)
-        toggle = try container.decodeIfPresent(CustomModeToggle.self, forKey: .toggle)
         bindings = try container.decodeIfPresent([CustomModeBinding].self, forKey: .bindings) ?? []
     }
 
@@ -71,12 +66,6 @@ struct CustomMode: Codable, Identifiable, Equatable {
     var indicatorColor: NSColor? {
         MouseModeConfiguration.cursorRingColor(from: indicatorColorHex)
     }
-}
-
-/// 切换到某模式的按键 + 触发方式。
-struct CustomModeToggle: Codable, Equatable {
-    var button: RemoteButton
-    var trigger: ButtonTrigger
 }
 
 /// 模式内的一个槽位绑定。用字符串存键与触发，便于 Codable 与导出校验。
