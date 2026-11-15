@@ -793,7 +793,8 @@ enum KeyboardInjector {
              .openSlack, .openWeCom, .openNeteaseMusic, .openChrome, .openSafari, .openZed, .openDimAgent:
             break
         case .mouseMoveUp, .mouseMoveDown, .mouseMoveLeft, .mouseMoveRight,
-             .mouseLeftClick, .mouseRightClick, .mouseScrollUp, .mouseScrollDown:
+             .mouseLeftClick, .mouseRightClick, .mouseScrollUp, .mouseScrollDown,
+             .mouseModeToggle:
             // 鼠标动作由 MouseModeController / MouseInjector 处理，不经过键盘注入路径。
             AppLogger.shared.write("KEYBOARD ACTION ignored reason=mouse_action action=\(action.rawValue)")
         }

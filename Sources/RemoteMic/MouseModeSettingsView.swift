@@ -96,24 +96,28 @@ struct MouseModeSettingsView: View {
                 localization.text("mouse_mode.acceleration.base_step"),
                 value: config.acceleration.baseStep,
                 range: 1...200,
+                step: 1,
                 unit: "px"
             )
             labelledStepper(
                 localization.text("mouse_mode.acceleration.slope"),
                 value: config.acceleration.acceleration,
-                range: 0...100,
-                unit: "px/100ms"
+                range: 0...200,
+                step: 1,
+                unit: "px/s"
             )
             labelledStepper(
                 localization.text("mouse_mode.acceleration.max_step"),
                 value: config.acceleration.maxStep,
                 range: 1...400,
+                step: 1,
                 unit: "px"
             )
             labelledStepper(
                 localization.text("mouse_mode.acceleration.interval"),
                 value: config.acceleration.stepInterval,
-                range: 10...500,
+                range: 1...100,
+                step: 1,
                 unit: "ms"
             )
         }
@@ -156,12 +160,13 @@ struct MouseModeSettingsView: View {
         _ title: String,
         value: Binding<Int>,
         range: ClosedRange<Int>,
+        step: Int,
         unit: String
     ) -> some View {
         Stepper(
             value: value,
             in: range,
-            step: range.lowerBound == 10 ? 10 : 1
+            step: step
         ) {
             Text("\(title)：\(value.wrappedValue) \(unit)")
                 .font(.system(size: 13))

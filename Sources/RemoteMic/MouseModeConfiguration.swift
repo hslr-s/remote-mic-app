@@ -26,18 +26,18 @@ struct MouseModeConfiguration: Codable, Equatable {
     }
 
     struct MouseAcceleration: Codable, Equatable {
-        /// 单击或按住初段每步移动的像素。
-        var baseStep: Int = 8
-        /// 每 100ms 增加的像素（线性加速斜率）。
-        var acceleration: Int = 4
-        /// 单步位移上限，避免无限加速。
-        var maxStep: Int = 60
-        /// 加速循环间隔（毫秒）。
-        var stepInterval: Int = 60
+        /// 单击或按住初段每步移动的像素（参考实现 `STEP = 10`）。
+        var baseStep: Int = 10
+        /// 每连续按住 1 秒增加的像素（线性加速斜率；参考实现等效 2 × baseStep）。
+        var acceleration: Int = 20
+        /// 单步位移上限，避免无限加速（参考实现等效 8 × baseStep）。
+        var maxStep: Int = 80
+        /// 连续移动循环间隔（毫秒，参考实现 `MOVE_TICK_MS = 16`）。
+        var stepInterval: Int = 16
 
         var isValid: Bool {
             baseStep > 0 && acceleration >= 0 && maxStep >= baseStep &&
-                (1...500).contains(stepInterval) && stepInterval % 10 == 0
+                (1...100).contains(stepInterval)
         }
     }
 }
@@ -73,11 +73,13 @@ enum MouseModeDefaults {
         }
     }
 
-    /// 方向键对应的屏幕位移（dy 向上为正，macOS 坐标原点在左下）。
+    /// 方向键对应的屏幕位移。
+    /// CGEvent 全局坐标原点在左上角、y 轴向下为正（与参考实现一致）：
+    /// 上 = -y、下 = +y、左 = -x、右 = +x。
     static func displacement(for button: RemoteButton, step: Int) -> (dx: Int, dy: Int) {
         switch button {
-        case .up: return (0, step)
-        case .down: return (0, -step)
+        case .up: return (0, -step)
+        case .down: return (0, step)
         case .left: return (-step, 0)
         case .right: return (step, 0)
         default: return (0, 0)

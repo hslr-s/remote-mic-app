@@ -2120,6 +2120,15 @@ final class HIDRemoteMonitor {
             trigger: trigger,
             profileID: profileID
         )
+        if configured.action == .mouseModeToggle {
+            // 映射页绑定的「切换鼠标模式」：无论鼠标模式当前状态、无论侧栏总开关，
+            // 遥控器都能进入 / 退出鼠标模式。
+            MouseModeController.shared.toggle()
+            AppLogger.shared.write(
+                "MOUSE MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue) source=mapping"
+            )
+            return true
+        }
         if appSwitcherSession.isActive, button == .tv {
             return performAppSwitcherAction(for: button, trigger: trigger)
         }

@@ -993,6 +993,7 @@ enum ButtonAction: String, CaseIterable, Codable, Identifiable {
     case mouseRightClick
     case mouseScrollUp
     case mouseScrollDown
+    case mouseModeToggle
 
     var id: String { rawValue }
 
@@ -1077,6 +1078,7 @@ enum ButtonAction: String, CaseIterable, Codable, Identifiable {
         case .mouseRightClick: return localization.text("action.mouse_right_click")
         case .mouseScrollUp: return localization.text("action.mouse_scroll_up")
         case .mouseScrollDown: return localization.text("action.mouse_scroll_down")
+        case .mouseModeToggle: return localization.text("action.mouse_mode_toggle")
         }
     }
 
@@ -1253,7 +1255,8 @@ enum ButtonAction: String, CaseIterable, Codable, Identifiable {
              .openZed, .openDimAgent:
             return .applications
         case .mouseMoveUp, .mouseMoveDown, .mouseMoveLeft, .mouseMoveRight,
-             .mouseLeftClick, .mouseRightClick, .mouseScrollUp, .mouseScrollDown:
+             .mouseLeftClick, .mouseRightClick, .mouseScrollUp, .mouseScrollDown,
+             .mouseModeToggle:
             return .systemAndMedia
         }
     }

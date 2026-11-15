@@ -27,8 +27,9 @@ struct MouseModeTests {
     }
 
     @Test func displacementSign() {
-        #expect(MouseModeDefaults.displacement(for: .up, step: 10) == (0, 10))
-        #expect(MouseModeDefaults.displacement(for: .down, step: 10) == (0, -10))
+        // CGEvent 全局坐标 y 向下为正：上 = -y、下 = +y。
+        #expect(MouseModeDefaults.displacement(for: .up, step: 10) == (0, -10))
+        #expect(MouseModeDefaults.displacement(for: .down, step: 10) == (0, 10))
         #expect(MouseModeDefaults.displacement(for: .left, step: 10) == (-10, 0))
         #expect(MouseModeDefaults.displacement(for: .right, step: 10) == (10, 0))
     }

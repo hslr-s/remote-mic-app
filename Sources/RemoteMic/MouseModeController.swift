@@ -17,32 +17,34 @@ final class MouseModeController: ObservableObject {
 
     /// 当前仍被按住的方向键（用于加速循环判断）。
     private var pressing = Set<RemoteButton>()
-    private var accelTimers: [RemoteButton: Timer] = [:]
-    private var accelSteps: [RemoteButton: Int] = [:]
+    /// 任一方向键首次按下的时刻（全部松开后清空，倍率随之复位）。
+    private var holdStart: Date?
+    private var accelTimer: Timer?
+
+    /// 连续移动启动延迟：按下后先只走「首次那一步」，超过该时长才进入连续加速
+    /// （与参考实现 `START_DELAY_MS = 180` 一致，保证单按精确走一步）。
+    private let holdDelay: TimeInterval = 0.18
 
     // MARK: - 配置
 
     /// 由 `AppSettings` 在加载与每次修改后推送。
-    /// 勾选总开关即视为「进入鼠标模式」：自动激活，使方向键立即接管指针；
-    /// 取消勾选则退出模式。TV 键的切换仍可用作运行期快速开关。
+    /// 总开关关闭时强制退出鼠标模式；开启时不自动激活——
+    /// 激活 / 退出由映射页绑定的「切换鼠标模式」动作（或 TV 键）用遥控器触发。
     func apply(configuration: MouseModeConfiguration) {
         self.configuration = configuration
-        setActive(configuration.enabled)
+        if !configuration.enabled { setActive(false) }
     }
 
     // MARK: - 开关
 
     func setActive(_ active: Bool) {
         guard isActive != active else { return }
+        isActive = active
         if !active {
-            isActive = false
             stopAllMovement()
             AppLogger.shared.write("MOUSE MODE phase=state result=off")
             return
         }
-        // 功能关闭时不能进入鼠标模式：开关键只在 enabled 时有效。
-        guard configuration.enabled else { return }
-        isActive = true
         AppLogger.shared.write("MOUSE MODE phase=state result=on")
     }
 
@@ -59,10 +61,9 @@ final class MouseModeController: ObservableObject {
 
     /// 返回 `.toggle`（应切换模式）或 `.action`（应执行鼠标动作），`nil` 表示不接管。
     func resolve(_ button: RemoteButton, _ trigger: ButtonTrigger) -> Resolution? {
-        // 功能关闭时完全不接管：所有键（含开关键）保持原有绑定，零行为变化。
-        guard configuration.enabled else { return nil }
-        // 开关键：鼠标模式激活时只做切换；非激活时仅其配置的触发方式切换，其余触发 passthrough。
-        if button == configuration.toggle.button {
+        // 配置的开关键（默认 TV 单击）仅在侧栏总开关开启时作为遥控器进出模式的
+        // 备用入口；映射页绑定的「切换鼠标模式」动作则不受该开关限制。
+        if configuration.enabled, button == configuration.toggle.button {
             let isToggleTrigger = trigger == configuration.toggle.trigger
             guard isActive else {
                 return isToggleTrigger ? .toggle : nil
@@ -82,19 +83,27 @@ final class MouseModeController: ObservableObject {
     // MARK: - 边缘处理（供 `RemoteButtonInteraction.handle` 薄 hook，仅方向键消费）
 
     /// 返回 `true` 表示事件已被鼠标模式消费（gesture 状态机不再处理该键）。
+    ///
+    /// 步进节奏与参考实现（`鼠标步进驱动/src/main.rs`）一致：
+    /// 首次按下只走一步；按住超过 `holdDelay` 后由 16ms 一帧的连续循环驱动，
+    /// 步长随按住时长线性放大，全部松开立即复位。
     func edge(_ button: RemoteButton, _ phase: RemoteButtonPhase) -> Bool {
         guard isActive, MouseModeDefaults.movedButtons.contains(button) else { return false }
         switch phase {
         case .press:
             pressing.insert(button)
+            if holdStart == nil { holdStart = Date() }
+            // 首次按下：只走一步，实现精确的离散控制。
             let step = configuration.acceleration.baseStep
             injector.move(button, step: step)
             cursorFeedback.handle(.pointerMoved(deltaX: 0, deltaY: 0, speed: Double(step)))
-            beginAcceleration(for: button)
+            beginAccelerationIfNeeded()
             return true
         case .release:
             pressing.remove(button)
-            stopAcceleration(for: button)
+            if pressing.isEmpty {
+                stopAllMovement()
+            }
             return true
         }
     }
@@ -121,45 +130,40 @@ final class MouseModeController: ObservableObject {
         }
     }
 
-    // MARK: - 线性加速
+    // MARK: - 线性加速（按住时长驱动，与方向无关，X/Y 完全对称）
 
-    private func beginAcceleration(for button: RemoteButton) {
-        stopAcceleration(for: button)
-        accelSteps[button] = configuration.acceleration.baseStep
-        let holdDelay = 0.25
-        accelTimers[button] = Timer.scheduledTimer(withTimeInterval: holdDelay, repeats: false) {
-            [weak self] _ in
-            guard let self, self.pressing.contains(button) else { return }
-            self.scheduleAccelLoop(for: button)
-        }
-    }
-
-    private func scheduleAccelLoop(for button: RemoteButton) {
+    /// 启动连续移动循环：16ms 一帧；每帧若已按住超过 `holdDelay`，
+    /// 步长按 `步长 = 基础步长 + 加速度 × 连续时长` 线性放大（上限 `maxStep`）。
+    /// 同帧内按住的多个方向合成一个向量，只发一次移动（对角线不提速）。
+    private func beginAccelerationIfNeeded() {
+        guard accelTimer == nil else { return }
         let interval = Double(configuration.acceleration.stepInterval) / 1000.0
-        accelTimers[button] = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) {
-            [weak self] timer in
-            guard let self, self.pressing.contains(button) else {
-                timer.invalidate()
-                return
-            }
-            var step = self.accelSteps[button] ?? self.configuration.acceleration.baseStep
-            step = min(self.configuration.acceleration.maxStep, step + self.configuration.acceleration.acceleration)
-            self.accelSteps[button] = step
-            self.injector.move(button, step: step)
-            self.cursorFeedback.handle(.pointerMoved(deltaX: 0, deltaY: 0, speed: Double(step)))
+        accelTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) {
+            [weak self] _ in
+            self?.accelTick()
         }
     }
 
-    private func stopAcceleration(for button: RemoteButton) {
-        accelTimers[button]?.invalidate()
-        accelTimers[button] = nil
-        accelSteps[button] = nil
+    private func accelTick() {
+        guard isActive, !pressing.isEmpty, let holdStart else { return }
+        let held = Date().timeIntervalSince(holdStart)
+        guard held >= holdDelay else { return } // 还没到连续阶段：仅保留首次那一步
+        let continuous = held - holdDelay
+        let accel = configuration.acceleration
+        let step = min(
+            accel.maxStep,
+            Int(Double(accel.baseStep) + Double(accel.acceleration) * continuous)
+        )
+        let dx = (pressing.contains(.right) ? step : 0) - (pressing.contains(.left) ? step : 0)
+        let dy = (pressing.contains(.down) ? step : 0) - (pressing.contains(.up) ? step : 0)
+        injector.moveBy(dx: dx, dy: dy)
+        cursorFeedback.handle(.pointerMoved(deltaX: 0, deltaY: 0, speed: Double(step)))
     }
 
     private func stopAllMovement() {
-        for button in pressing {
-            stopAcceleration(for: button)
-        }
+        accelTimer?.invalidate()
+        accelTimer = nil
+        holdStart = nil
         pressing.removeAll()
     }
 }

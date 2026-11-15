@@ -38,3 +38,4 @@ marketing/
 # Mobile Web deployment inventory and infrastructure details stay local.
 /Apps/MobileWeb/.private/
 /Apps/MobileWeb/**/node_modules/
+.history

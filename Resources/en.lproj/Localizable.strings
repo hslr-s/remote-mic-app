@@ -272,6 +272,7 @@
 "action.mouse_right_click" = "Right Click";
 "action.mouse_scroll_up" = "Scroll Up";
 "action.mouse_scroll_down" = "Scroll Down";
+"action.mouse_mode_toggle" = "Toggle Mouse Mode";
 "button_mapping.action_filter.all" = "All";
 "button_mapping.action_filter.voice_key" = "Voice";
 "button_mapping.action_filter.basic_keys" = "Keys";

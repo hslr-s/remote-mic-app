@@ -10,6 +10,11 @@ struct MouseInjector {
     /// 单步移动指针（方向键单击或加速循环的每一步）。
     func move(_ button: RemoteButton, step: Int) {
         let (dx, dy) = MouseModeDefaults.displacement(for: button, step: step)
+        moveBy(dx: dx, dy: dy)
+    }
+
+    /// 按合成向量移动指针（同时按住多个方向键时按帧合成一次，对角线不提速）。
+    func moveBy(dx: Int, dy: Int) {
         guard dx != 0 || dy != 0 else { return }
         postMouseMove(dx: dx, dy: dy)
     }

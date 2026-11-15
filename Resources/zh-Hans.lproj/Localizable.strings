@@ -272,6 +272,7 @@
 "action.mouse_right_click" = "鼠标右键";
 "action.mouse_scroll_up" = "滚轮向上";
 "action.mouse_scroll_down" = "滚轮向下";
+"action.mouse_mode_toggle" = "切换鼠标模式";
 "button_mapping.action_filter.all" = "全部";
 "button_mapping.action_filter.voice_key" = "语音键";
 "button_mapping.action_filter.basic_keys" = "基础按键";
