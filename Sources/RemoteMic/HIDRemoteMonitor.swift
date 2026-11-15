@@ -209,6 +209,12 @@ final class HIDRemoteMonitor {
     private let permissionPoll: HIDPermissionPoll
     private let runtimePermissions: () -> Bool
     private let actionPerformer: (RemoteButton, ButtonTrigger, ConfiguredButtonAction) -> Bool
+
+    /// 鼠标模式薄 hook：默认咨询单例 `MouseModeController`，返回 `.toggle` / `.action` 表示接管；
+    /// 作者要移除本功能时删掉这一行与 `performConfiguredAction` 中的对应分支即可。
+    var mouseModeResolver: ((UUID?, RemoteButton, ButtonTrigger) -> MouseModeController.Resolution?)? = {
+        _, button, trigger in MouseModeController.shared.resolve(button, trigger)
+    }
     private let holdBeginPerformer: (ConfiguredButtonAction) -> Bool
     private let holdEndPerformer: (String) -> Void
     /// 解析该按键当前生效的单击与长按动作：方案覆盖优先，其次基础映射。
@@ -2087,6 +2093,27 @@ final class HIDRemoteMonitor {
                 "HID BUTTON button=\(button.rawValue) trigger=\(trigger.rawValue) action=private_feature"
             )
             return true
+        }
+        if let resolution = mouseModeResolver?(profileID, button, trigger) {
+            switch resolution {
+            case .toggle:
+                MouseModeController.shared.toggle()
+                AppLogger.shared.write(
+                    "MOUSE MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue)"
+                )
+                return true
+            case .action(let configured):
+                guard MouseModeController.shared.perform(configured) else {
+                    diagnosticLogger(
+                        "MOUSE MODE action failed button=\(button.rawValue) action=\(configured.action.rawValue)"
+                    )
+                    return false
+                }
+                AppLogger.shared.write(
+                    "MOUSE MODE phase=action button=\(button.rawValue) trigger=\(trigger.rawValue) action=\(configured.action.rawValue)"
+                )
+                return true
+            }
         }
         let configured = captured ?? settings.configuredAction(
             for: button,

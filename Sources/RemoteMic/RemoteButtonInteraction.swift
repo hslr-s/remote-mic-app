@@ -33,6 +33,12 @@ final class RemoteButtonInteractionController {
     private let scheduler: HIDRemoteScheduling
     private var interactions: [RemoteButton: Interaction] = [:]
 
+    /// 鼠标模式薄 hook：默认咨询单例 `MouseModeController`，方向键在鼠标模式下消费按下 / 松开边缘。
+    /// 作者要移除本功能时删掉这一行与 `handle` 中的对应分支即可。
+    var mouseModeEdgeHandler: ((RemoteButton, RemoteButtonPhase) -> Bool)? = {
+        button, phase in MouseModeController.shared.edge(button, phase)
+    }
+
     init(scheduler: HIDRemoteScheduling = DispatchHIDRemoteScheduler()) {
         self.scheduler = scheduler
     }
@@ -45,6 +51,7 @@ final class RemoteButtonInteractionController {
                 perform: @escaping (ButtonTrigger, ConfiguredButtonAction) -> Bool,
                 beginHold: ((ConfiguredButtonAction) -> Bool)? = nil,
                 endHold: ((String) -> Void)? = nil) {
+        if mouseModeEdgeHandler?(button, phase) == true { return }
         if phase == .release { release(button); return }
         if let current = interactions[button] {
             guard current.waiting else { return }

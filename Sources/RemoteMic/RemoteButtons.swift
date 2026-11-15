@@ -985,6 +985,14 @@ enum ButtonAction: String, CaseIterable, Codable, Identifiable {
     case openSafari
     case openZed
     case openDimAgent
+    case mouseMoveUp
+    case mouseMoveDown
+    case mouseMoveLeft
+    case mouseMoveRight
+    case mouseLeftClick
+    case mouseRightClick
+    case mouseScrollUp
+    case mouseScrollDown
 
     var id: String { rawValue }
 
@@ -1061,6 +1069,14 @@ enum ButtonAction: String, CaseIterable, Codable, Identifiable {
         case .openSafari: return localization.text("action.open_safari")
         case .openZed: return localization.text("action.open_zed")
         case .openDimAgent: return localization.text("action.open_dim_agent")
+        case .mouseMoveUp: return localization.text("action.mouse_move_up")
+        case .mouseMoveDown: return localization.text("action.mouse_move_down")
+        case .mouseMoveLeft: return localization.text("action.mouse_move_left")
+        case .mouseMoveRight: return localization.text("action.mouse_move_right")
+        case .mouseLeftClick: return localization.text("action.mouse_left_click")
+        case .mouseRightClick: return localization.text("action.mouse_right_click")
+        case .mouseScrollUp: return localization.text("action.mouse_scroll_up")
+        case .mouseScrollDown: return localization.text("action.mouse_scroll_down")
         }
     }
 
@@ -1236,6 +1252,9 @@ enum ButtonAction: String, CaseIterable, Codable, Identifiable {
              .openXcode, .openSlack, .openWeCom, .openNeteaseMusic, .openChrome, .openSafari,
              .openZed, .openDimAgent:
             return .applications
+        case .mouseMoveUp, .mouseMoveDown, .mouseMoveLeft, .mouseMoveRight,
+             .mouseLeftClick, .mouseRightClick, .mouseScrollUp, .mouseScrollDown:
+            return .systemAndMedia
         }
     }
 

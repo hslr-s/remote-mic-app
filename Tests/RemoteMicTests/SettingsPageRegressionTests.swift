@@ -2205,6 +2205,7 @@ struct SettingsPageRegressionTests {
             membershipVisible: true
         ) == [
             .mapping,
+            .mouseMode,
             .applications,
             .macros,
             .buttonProfiles,

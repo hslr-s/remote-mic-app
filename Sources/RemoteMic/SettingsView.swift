@@ -30,7 +30,9 @@ struct SettingsSection: RawRepresentable, Hashable, CaseIterable, Identifiable {
     static let commonPhrases = SettingsSection(rawValue: "commonPhrases")
     static let permissions = SettingsSection(rawValue: "permissions")
     static let about = SettingsSection(rawValue: "about")
-    static let allCases: [SettingsSection] = [.connection, .privateFeature, .macros, .buttonProfiles, .membership, .mapping, .applications, .statistics, .transcripts, .commonPhrases, .permissions, .about]
+    /// 鼠标模式：独立侧栏分区，不进入动作分类筛选。
+    static let mouseMode = SettingsSection(rawValue: "mouseMode")
+    static let allCases: [SettingsSection] = [.connection, .privateFeature, .macros, .buttonProfiles, .membership, .mapping, .applications, .statistics, .transcripts, .commonPhrases, .permissions, .about, .mouseMode]
     static func supplemental(_ id: String) -> SettingsSection { SettingsSection(rawValue: "supplemental:" + id) }
     var supplementalID: String? { rawValue.hasPrefix("supplemental:") ? String(rawValue.dropFirst(13)) : nil }
     var id: String { rawValue }
@@ -49,6 +51,7 @@ struct SettingsSection: RawRepresentable, Hashable, CaseIterable, Identifiable {
         case .transcripts: return "settings.section.transcripts"
         case .permissions: return "settings.section.permissions"
         case .about: return "settings.section.settings"
+        case .mouseMode: return "settings.section.mouse_mode"
         default: return ""
         }
     }
@@ -71,6 +74,7 @@ struct SettingsSection: RawRepresentable, Hashable, CaseIterable, Identifiable {
         case .transcripts: return "text.bubble.fill"
         case .permissions: return "shield.lefthalf.filled"
         case .about: return "gearshape"
+        case .mouseMode: return "cursorarrow"
         default: return "square"
         }
     }
@@ -201,6 +205,7 @@ enum SettingsPageBehavior {
 
     static let sidebarSectionOrder: [SettingsSection] = [
         .mapping,
+        .mouseMode,
         .applications,
         .macros,
         .buttonProfiles,
@@ -1241,6 +1246,8 @@ struct SettingsView: View {
             transcriptHistoryPage
         case .permissions:
             aboutPage
+        case .mouseMode:
+            mouseModePage
         case .about:
             aboutPage
                 .task(id: buttonProfileImportRequests.pendingRequest?.operationID) {
@@ -4924,6 +4931,10 @@ struct SettingsView: View {
         .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
     }
 
+    private var mouseModePage: some View {
+        MouseModeSettingsView(settings: settings, localization: localization)
+    }
+
     private var applicationsPage: some View {
         settingsPage {
             VStack(alignment: .leading, spacing: 6) {
@@ -7088,6 +7099,7 @@ struct SettingsView: View {
         case .macros: macroFeature.sectionTitle
         case .buttonProfiles: macroFeature.buttonProfilesSectionTitle
         case .membership: membershipFeature.sectionTitle
+        case .mouseMode: localization.text("settings.section.mouse_mode")
         default: supplementalPages.first { SettingsSection.supplemental($0.id) == section }?.title ?? ""
         }
     }

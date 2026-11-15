@@ -340,6 +340,8 @@ final class AppSettings: ObservableObject {
         static let siriRemoteScrollArrowReversed = "siriRemote.scrollArrowReversed"
         static let siriRemoteEnabled = "siriRemote.enabled"
         static let siriRemoteNeedsUserAction = "siriRemote.needsUserAction"
+        /// 鼠标模式配置（独立于作者的 `modes` 字段，结构可版本化）。
+        static let mouseModeConfiguration = "mouseModeConfiguration"
         static let chromecastEnabled = "chromecast.enabled"
         static let chromecastVoiceMode = "chromecast.voiceMode"
         static let localTranscriptHistoryEnabled = "localTranscriptHistoryEnabled"
@@ -430,6 +432,16 @@ final class AppSettings: ObservableObject {
 
     @Published var customMappingEnabled: Bool {
         didSet { defaults.set(customMappingEnabled, forKey: Keys.customMappingEnabled) }
+    }
+
+    /// 鼠标模式配置：修改即落盘并推送给运行时单例。
+    @Published var mouseModeConfiguration: MouseModeConfiguration = MouseModeConfiguration() {
+        didSet {
+            if let data = try? JSONEncoder().encode(mouseModeConfiguration) {
+                defaults.set(data, forKey: Keys.mouseModeConfiguration)
+            }
+            MouseModeController.shared.apply(configuration: mouseModeConfiguration)
+        }
     }
 
     var configuredActionOverride: ((UUID?, RemoteButton, ButtonTrigger) -> ConfiguredButtonAction?)?
@@ -1001,6 +1013,16 @@ final class AppSettings: ObservableObject {
         } else {
             customMappingEnabled = defaults.bool(forKey: Keys.legacyExclusiveHID)
         }
+
+        let mouseModeConfig: MouseModeConfiguration
+        if let data = defaults.data(forKey: Keys.mouseModeConfiguration),
+           let decoded = try? JSONDecoder().decode(MouseModeConfiguration.self, from: data) {
+            mouseModeConfig = decoded
+        } else {
+            mouseModeConfig = MouseModeConfiguration()
+        }
+        mouseModeConfiguration = mouseModeConfig
+        MouseModeController.shared.apply(configuration: mouseModeConfig)
 
         if let decoded = Self.decodeSetting(
             [String: ButtonAction].self,

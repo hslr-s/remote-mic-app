@@ -8,6 +8,10 @@
   - 选形态的规则：持续存在的状态用 `NoticeInline`；瞬时事件用 `NoticeBubble` + `NoticeCenter`，需要指向具体元素时用 `noticeAnchor`。
   - 视觉依据在 `Screenshots/design-drafts/unified-notice-20261110/`（本地目录，按仓库规范不入库）：`review.html` 的 04.5 与 04.7 两节，`inline-compare-20261111.html` 记录了内联条的形态取舍。
 
+- [ ] 鼠标模式（Mouse Mode）
+  - 2026-11-15：分支 `feature/mouse-mode` 从 `origin/main`（`8ac30cf2`）开出；`feature/mouse-mode/PRODUCT_SPEC.md` 已立。v1 范围：全局开关、启用/退出键（按键+触发）、方向键步进+线性加速移动、确认=左键、菜单=右键、音量键=滚轮（可互换方向）、其余键保持原绑定（passthrough）、语音键锁定（走语音，不可改）。新增 `MouseModeConfiguration`/`MouseInjector`/`MouseModeController`/`MouseModeSettingsView` 四个独立文件；`ButtonAction` 追加 8 个鼠标动作；`HIDRemoteMonitor`/`RemoteButtonInteraction` 各加一个默认咨询单例的薄 hook；配置存 `AppSettings.mouseModeConfiguration`（不复用作者既有的 `modes` 字段）。方向/确认/菜单映射 v1 写死置灰。
+  - 待完成：本地 `swift build`/`swift test` 验证、设置页中英文浅/深色截图、真实遥控器 + 蓝牙 + 辅助功能实机验收。v2（独立计划）再开放「任意键映射到任意鼠标动作」编辑。
+
 - [ ] 状态菜单显示已连接遥控器的电量（#860）
   - 已实现。2026-11-05 使用小米蓝牙遥控器 2 Pro 实测，菜单和连接页均为 94%，连续打开两次各显示一行。未知读数、断开及多设备已由自动化覆盖，菜单外观截图待补。详见 `Testing/MenuBarVisibility.md` 用例 6。
 
