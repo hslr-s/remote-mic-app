@@ -1520,22 +1520,9 @@ final class HIDRemoteMonitor {
                 continue
             }
 
-            // 「切换鼠标模式」键：在物理按下边沿立即切换并吞掉这次 press，
-            // 绕过单击/双击/长按手势判定、stable-release 闩锁，以及鼠标模式下的固定映射
-            // （如「菜单 = 右键」）。绑定以「按键映射」页为准，任意 trigger 绑定都认。
-            // 这样保证第一次按下就触发、每次都触发、进入/退出都不被屏蔽。
-            let isMouseModeToggleKey = ButtonTrigger.allCases.contains { trigger in
-                settings.configuredAction(
-                    for: button, trigger: trigger, profileID: profileID
-                ).action == .mouseModeToggle
-            }
-            if isMouseModeToggleKey {
-                MouseModeController.shared.toggle()
-                AppLogger.shared.write(
-                    "MOUSE MODE phase=toggle button=\(button.rawValue) trigger=press_edge source=mapping"
-                )
-                continue
-            }
+            // 「切换鼠标模式」由按键映射页的 trigger 精确决定，走正常的手势判定链路
+            // （见 performConfiguredAction）：单击仍是单击、双击仍是双击，不在此处抢先切换。
+            // 切勿在物理 press 边沿用 allCases 一刀切——那会让「双击绑定」被单击误触发。
 
             // Discovery may associate an existing configured device during the callback.
             let hasSingleClickOverride = settings.configuredActionOverride?(
@@ -2111,15 +2098,13 @@ final class HIDRemoteMonitor {
             )
             return true
         }
-        // 映射页绑定的「切换鼠标模式」优先级最高：无论鼠标模式当前状态、无论总开关、
-        // 也无论触发方式（单击 / 长按 / 双击），遥控器都能进入 / 退出鼠标模式。
-        // 必须排在 `mouseModeResolver` 之前，否则会被其写死的「菜单 = 右键」等默认动作覆盖。
+        // 映射页绑定的「切换鼠标模式」优先级最高：必须排在 `mouseModeResolver` 之前，
+        // 否则会被其写死的「菜单 = 右键」等默认动作覆盖。
+        // 严格按当前 trigger 判定：绑在双击就只在双击时切换，绑在单击就只在单击时切换，
+        // 互不串扰。这样「菜单双击=切换、菜单单击=上下文菜单」能各走各的手势判定。
         let toggleMapped = settings.configuredAction(
             for: button, trigger: trigger, profileID: profileID
         ).action == .mouseModeToggle
-            || settings.configuredAction(
-                for: button, trigger: .singleClick, profileID: profileID
-            ).action == .mouseModeToggle
         if toggleMapped {
             MouseModeController.shared.toggle()
             AppLogger.shared.write(
