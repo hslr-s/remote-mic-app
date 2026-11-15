@@ -22,6 +22,8 @@ final class MouseModeController: ObservableObject {
     private var holdStart: Date?
     /// 连续移动定时器（GCD 源，确保跨线程可靠触发）。
     private var accelSource: DispatchSourceTimer?
+    /// 松开防抖任务：合并遥控器的「按-放-按」自动重复为持续按住，避免连续移动被打断。
+    private var releaseDebounce: [RemoteButton: DispatchWorkItem] = [:]
 
     /// 连续移动启动延迟：按下后先只走「首次那一步」，超过该时长才进入连续加速
     /// （与参考实现 `START_DELAY_MS = 180` 一致，保证单按精确走一步）。
@@ -47,6 +49,12 @@ final class MouseModeController: ObservableObject {
             AppLogger.shared.write("MOUSE MODE phase=state result=off")
             return
         }
+        // 进入模式：先播种真实光标坐标（避免首步飞到原点），并立即显示指针圈。
+        injector.syncCursor()
+        cursorFeedback.handle(.pointerMoved(
+            deltaX: 0, deltaY: 0,
+            speed: Double(configuration.acceleration.baseStep)
+        ))
         AppLogger.shared.write("MOUSE MODE phase=state result=on")
     }
 
@@ -63,8 +71,9 @@ final class MouseModeController: ObservableObject {
 
     /// 返回 `.toggle`（应切换模式）或 `.action`（应执行鼠标动作），`nil` 表示不接管。
     func resolve(_ button: RemoteButton, _ trigger: ButtonTrigger) -> Resolution? {
-        // 配置的开关键（默认 TV 单击）仅在侧栏总开关开启时作为遥控器进出模式的
-        // 备用入口；映射页绑定的「切换鼠标模式」动作则不受该开关限制。
+        // 配置的开关键（默认 TV 单击）在总开关开启时作为遥控器进出模式的备用入口。
+        // 注：映射页绑定的「切换鼠标模式」由 `performConfiguredAction` 前置处理，
+        // 不受此处触发方式限制（单击/长按均可）。
         if configuration.enabled, button == configuration.toggle.button {
             let isToggleTrigger = trigger == configuration.toggle.trigger
             guard isActive else {
@@ -93,6 +102,9 @@ final class MouseModeController: ObservableObject {
         guard isActive, MouseModeDefaults.movedButtons.contains(button) else { return false }
         switch phase {
         case .press:
+            // 取消该键可能挂起的「停止」任务：自动重复（按-放-按）被合并为持续按住。
+            releaseDebounce[button]?.cancel()
+            releaseDebounce.removeValue(forKey: button)
             pressing.insert(button)
             if holdStart == nil { holdStart = Date() }
             // 首次按下：只走一步，实现精确的离散控制。
@@ -102,10 +114,18 @@ final class MouseModeController: ObservableObject {
             beginAccelerationIfNeeded()
             return true
         case .release:
+            // 暂移出「按住集合」，但若 80ms 内再次按下（自动重复）则忽略此次松开，
+            // 连续定时器不被打断；真正松开（无后续按下）才停止全部移动。
             pressing.remove(button)
-            if pressing.isEmpty {
-                stopAllMovement()
+            guard pressing.isEmpty else { return true }
+            let item = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.releaseDebounce.removeValue(forKey: button)
+                guard self.pressing.isEmpty else { return }
+                self.stopAllMovement()
             }
+            releaseDebounce[button] = item
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: item)
             return true
         }
     }
@@ -166,6 +186,8 @@ final class MouseModeController: ObservableObject {
     private func stopAllMovement() {
         accelSource?.cancel()
         accelSource = nil
+        releaseDebounce.values.forEach { $0.cancel() }
+        releaseDebounce.removeAll()
         holdStart = nil
         pressing.removeAll()
         injector.resetCursorTracking()

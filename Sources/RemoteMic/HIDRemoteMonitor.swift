@@ -2094,6 +2094,22 @@ final class HIDRemoteMonitor {
             )
             return true
         }
+        // 映射页绑定的「切换鼠标模式」优先级最高：无论鼠标模式当前状态、无论总开关、
+        // 也无论触发方式（单击 / 长按 / 双击），遥控器都能进入 / 退出鼠标模式。
+        // 必须排在 `mouseModeResolver` 之前，否则会被其写死的「菜单 = 右键」等默认动作覆盖。
+        let toggleMapped = settings.configuredAction(
+            for: button, trigger: trigger, profileID: profileID
+        ).action == .mouseModeToggle
+            || settings.configuredAction(
+                for: button, trigger: .singleClick, profileID: profileID
+            ).action == .mouseModeToggle
+        if toggleMapped {
+            MouseModeController.shared.toggle()
+            AppLogger.shared.write(
+                "MOUSE MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue) source=mapping"
+            )
+            return true
+        }
         if let resolution = mouseModeResolver?(profileID, button, trigger) {
             switch resolution {
             case .toggle:
