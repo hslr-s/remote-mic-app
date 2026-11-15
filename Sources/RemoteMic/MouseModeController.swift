@@ -1,4 +1,5 @@
 import Combine
+import Dispatch
 import Foundation
 
 /// 鼠标模式运行时控制器：持有开关、当前配置，解析按键，驱动线性加速移动。
@@ -19,7 +20,8 @@ final class MouseModeController: ObservableObject {
     private var pressing = Set<RemoteButton>()
     /// 任一方向键首次按下的时刻（全部松开后清空，倍率随之复位）。
     private var holdStart: Date?
-    private var accelTimer: Timer?
+    /// 连续移动定时器（GCD 源，确保跨线程可靠触发）。
+    private var accelSource: DispatchSourceTimer?
 
     /// 连续移动启动延迟：按下后先只走「首次那一步」，超过该时长才进入连续加速
     /// （与参考实现 `START_DELAY_MS = 180` 一致，保证单按精确走一步）。
@@ -136,12 +138,13 @@ final class MouseModeController: ObservableObject {
     /// 步长按 `步长 = 基础步长 + 加速度 × 连续时长` 线性放大（上限 `maxStep`）。
     /// 同帧内按住的多个方向合成一个向量，只发一次移动（对角线不提速）。
     private func beginAccelerationIfNeeded() {
-        guard accelTimer == nil else { return }
+        guard accelSource == nil else { return }
         let interval = Double(configuration.acceleration.stepInterval) / 1000.0
-        accelTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) {
-            [weak self] _ in
-            self?.accelTick()
-        }
+        let src = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .userInteractive))
+        src.schedule(deadline: .now() + interval, repeating: interval)
+        src.setEventHandler { [weak self] in self?.accelTick() }
+        src.resume()
+        accelSource = src
     }
 
     private func accelTick() {
@@ -161,9 +164,10 @@ final class MouseModeController: ObservableObject {
     }
 
     private func stopAllMovement() {
-        accelTimer?.invalidate()
-        accelTimer = nil
+        accelSource?.cancel()
+        accelSource = nil
         holdStart = nil
         pressing.removeAll()
+        injector.resetCursorTracking()
     }
 }
