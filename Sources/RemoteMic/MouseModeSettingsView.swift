@@ -1,16 +1,22 @@
 import SwiftUI
 
-/// 鼠标模式设置页：独立侧栏分区，不进入动作分类筛选。
+/// 鼠标模式设置页：顶部为模式参数，下方复用按键映射画布做「只读预览」。
 ///
-/// v1 只暴露：总开关、启用键、音量滚轮互换、加速参数；方向 / 确认 / 菜单映射写死并以锁定样式展示。
-/// 编辑其他键映射留待 v2（见 `feature/mouse-mode/PRODUCT_SPEC.md`）。
+/// 双模式约定（见 `feature/mouse-mode/PRODUCT_SPEC.md`）：
+/// - 普通模式 = 「按键」页，全部槽位可自定义，任意「键 + 触发」都可绑为「切换鼠标模式」。
+/// - 鼠标模式 = 本页；被占用槽位显示鼠标固定功能并置灰，未占用槽位显示映射页设置，整体只读。
 struct MouseModeSettingsView: View {
     @ObservedObject var settings: AppSettings
     var localization: LocalizationStore
 
+    @State private var selectedButton: RemoteButton = .up
+
     private var config: Binding<MouseModeConfiguration> {
         $settings.mouseModeConfiguration
     }
+
+    private var inverted: Bool { settings.mouseModeConfiguration.volumeScrollInverted }
+    private var profileID: UUID? { settings.selectedRemoteProfileID }
 
     var body: some View {
         ScrollView {
@@ -18,9 +24,9 @@ struct MouseModeSettingsView: View {
                 header
                 enableSection
                 toggleSection
+                mappingPreviewSection
                 scrollSection
                 accelerationSection
-                fixedMappingSection
             }
             .padding(24)
         }
@@ -50,6 +56,32 @@ struct MouseModeSettingsView: View {
             Text(localization.text("mouse_mode.toggle.subtitle"))
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// 与「按键」页同款的遥控器画布，整体只读：
+    /// 占用槽位（含切换槽位）置灰加锁，未占用槽位显示映射页设置。
+    private var mappingPreviewSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle(localization.text("mouse_mode.mapping.title"))
+            Text(localization.text("mouse_mode.mapping.subtitle"))
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            RemoteMappingCanvas(
+                selectedButton: $selectedButton,
+                activeButtons: [],
+                voiceActive: false,
+                remoteModel: settings.selectedRemoteProfile?.model,
+                actionSummary: { button, trigger in slotSummary(button: button, trigger: trigger) },
+                holdSummary: { button in holdSummary(button: button) },
+                onEdit: { _, _ in },
+                onEditHold: { _ in },
+                onVoiceSettings: {},
+                isSlotLocked: { button, trigger in isSlotLocked(button: button, trigger: trigger) },
+                isHoldLocked: { button in MouseModeDefaults.movedButtons.contains(button) }
+            )
         }
     }
 
@@ -72,6 +104,7 @@ struct MouseModeSettingsView: View {
             Text(localization.text("mouse_mode.acceleration.subtitle"))
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             labelledStepper(
                 localization.text("mouse_mode.acceleration.base_step"),
                 value: config.acceleration.baseStep,
@@ -103,30 +136,63 @@ struct MouseModeSettingsView: View {
         }
     }
 
-    private var fixedMappingSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle(localization.text("mouse_mode.fixed.title"))
-            Text(localization.text("mouse_mode.fixed.subtitle"))
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(Array(MouseModeDefaults.mouseButtons), id: \.self) { button in
-                    HStack {
-                        Text(remoteButtonName(button))
-                            .font(.system(size: 13))
-                        Spacer()
-                        Text(actionName(for: button))
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.tertiary)
-                    }
+    // MARK: - 槽位展示（与运行时 MouseModeDefaults 同一套占用规则）
+
+    /// 映射页里绑定了「切换鼠标模式」的全部槽位。
+    private var toggleSlots: Set<String> {
+        var result = Set<String>()
+        for button in RemoteButton.allCases {
+            for trigger in ButtonTrigger.allCases {
+                let configured = settings.configuredAction(
+                    for: button, trigger: trigger, profileID: profileID
+                )
+                if configured.action == .mouseModeToggle {
+                    result.insert(slotKey(button, trigger))
                 }
             }
-            .padding(12)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
         }
+        return result
+    }
+
+    private func slotKey(_ button: RemoteButton, _ trigger: ButtonTrigger) -> String {
+        "\(button.rawValue)|\(trigger.rawValue)"
+    }
+
+    private func isSlotLocked(button: RemoteButton, trigger: ButtonTrigger) -> Bool {
+        if toggleSlots.contains(slotKey(button, trigger)) { return true }
+        return MouseModeDefaults.isReserved(
+            button: button, trigger: trigger, volumeScrollInverted: inverted
+        )
+    }
+
+    private func slotSummary(button: RemoteButton, trigger: ButtonTrigger) -> String {
+        if toggleSlots.contains(slotKey(button, trigger)) {
+            return localization.text("action.mouse_mode_toggle")
+        }
+        if let fixed = MouseModeDefaults.binding(
+            for: button, trigger: trigger, volumeScrollInverted: inverted
+        ) {
+            return fixed.displayName(using: localization)
+        }
+        return mappingSummary(for: button, trigger: trigger)
+    }
+
+    /// 未占用槽位显示「按键映射」页里设置的内容。
+    private func mappingSummary(for button: RemoteButton, trigger: ButtonTrigger) -> String {
+        let configured = settings.configuredAction(
+            for: button, trigger: trigger, profileID: profileID
+        )
+        guard configured.action != .disabled else {
+            return localization.text("button_mapping.action.not_set")
+        }
+        return configured.action.displayName(using: localization)
+    }
+
+    private func holdSummary(button: RemoteButton) -> String {
+        if MouseModeDefaults.movedButtons.contains(button) {
+            return localization.text("mouse_mode.hold.accelerate")
+        }
+        return localization.text("button_mapping.hold.entry")
     }
 
     // MARK: - 小组件
@@ -151,27 +217,5 @@ struct MouseModeSettingsView: View {
             Text("\(title)：\(value.wrappedValue) \(unit)")
                 .font(.system(size: 13))
         }
-    }
-
-    private func remoteButtonName(_ button: RemoteButton) -> String {
-        let key = "remote_button.\(button.rawValue)"
-        let localized = localization.text(key)
-        return localized == key ? button.rawValue : localized
-    }
-
-    private func buttonTriggerName(_ trigger: ButtonTrigger) -> String {
-        let key = "button_trigger.\(trigger.rawValue)"
-        let localized = localization.text(key)
-        return localized == key ? trigger.rawValue : localized
-    }
-
-    private func actionName(for button: RemoteButton) -> String {
-        guard let action = MouseModeDefaults.binding(
-            for: button,
-            volumeScrollInverted: settings.mouseModeConfiguration.volumeScrollInverted
-        ) else {
-            return ""
-        }
-        return action.displayName(using: localization)
     }
 }

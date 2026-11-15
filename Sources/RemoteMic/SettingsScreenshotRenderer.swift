@@ -31,6 +31,7 @@ enum SettingsScreenshotRenderer {
 
     private static let sections: [SettingsSection] = [
         .mapping,
+        .mouseMode,
         .applications,
         .commonPhrases,
         .macros,

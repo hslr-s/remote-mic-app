@@ -20,6 +20,24 @@ struct MouseModeTests {
         #expect(MouseModeDefaults.binding(for: .volumeDown, volumeScrollInverted: true) == .mouseScrollUp)
     }
 
+    /// 菜单键只占用单击这一个槽位；双击 / 长按 passthrough 到映射页。
+    @Test func menuOnlyReservesSingleClick() {
+        #expect(MouseModeDefaults.binding(for: .menu, trigger: .singleClick, volumeScrollInverted: false) == .mouseRightClick)
+        #expect(MouseModeDefaults.binding(for: .menu, trigger: .doubleClick, volumeScrollInverted: false) == nil)
+        #expect(MouseModeDefaults.binding(for: .menu, trigger: .longPress, volumeScrollInverted: false) == nil)
+        #expect(MouseModeDefaults.isReserved(button: .menu, trigger: .singleClick, volumeScrollInverted: false))
+        #expect(!MouseModeDefaults.isReserved(button: .menu, trigger: .doubleClick, volumeScrollInverted: false))
+    }
+
+    /// 方向键 / OK / 音量键整键占用（三个槽位都算占用）。
+    @Test func wholeKeyReservedSlots() {
+        for trigger in ButtonTrigger.allCases {
+            #expect(MouseModeDefaults.binding(for: .up, trigger: trigger, volumeScrollInverted: false) == .mouseMoveUp)
+            #expect(MouseModeDefaults.binding(for: .ok, trigger: trigger, volumeScrollInverted: false) == .mouseLeftClick)
+            #expect(MouseModeDefaults.binding(for: .volumeUp, trigger: trigger, volumeScrollInverted: false) == .mouseScrollUp)
+        }
+    }
+
     @Test func unmappedButtonsPassThrough() {
         #expect(MouseModeDefaults.binding(for: .power, volumeScrollInverted: false) == nil)
         #expect(MouseModeDefaults.binding(for: .home, volumeScrollInverted: false) == nil)
@@ -109,6 +127,9 @@ struct MouseModeTests {
         #expect(controller.resolve(.ok, .singleClick) == .action(ConfiguredButtonAction(action: .mouseLeftClick, shortcut: nil)))
         #expect(controller.resolve(.menu, .singleClick) == .action(ConfiguredButtonAction(action: .mouseRightClick, shortcut: nil)))
         #expect(controller.resolve(.up, .singleClick) == .action(ConfiguredButtonAction(action: .mouseMoveUp, shortcut: nil)))
+        // 菜单只占单击：双击 / 长按 passthrough，走映射页自定义（切换就是绑在这里）。
+        #expect(controller.resolve(.menu, .doubleClick) == nil)
+        #expect(controller.resolve(.menu, .longPress) == nil)
         // 其他键 passthrough
         #expect(controller.resolve(.power, .singleClick) == nil)
     }

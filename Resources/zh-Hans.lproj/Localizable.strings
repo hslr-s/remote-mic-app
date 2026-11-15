@@ -364,6 +364,10 @@
 "mouse_mode.acceleration.interval" = "加速间隔";
 "mouse_mode.fixed.title" = "固定映射（v1 写死）";
 "mouse_mode.fixed.subtitle" = "以下按键在鼠标模式下已固定，v2 将支持自定义。语音键在模式下仍走语音，不可改。";
+"mouse_mode.mapping.title" = "按键映射（鼠标模式）";
+"mouse_mode.mapping.subtitle" = "与「按键」页相同的遥控器。占用槽位显示鼠标固定功能并置灰，未占用槽位显示映射页里的设置；本页只读，修改请到「按键」页。";
+"mouse_mode.hold.accelerate" = "按住加速";
+"mouse_mode.slot.locked" = "鼠标模式下固定，只读";
 "remote_button.power" = "电源";
 "remote_button.up" = "上";
 "remote_button.left" = "左";

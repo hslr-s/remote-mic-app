@@ -364,6 +364,10 @@
 "mouse_mode.acceleration.interval" = "Accel Interval";
 "mouse_mode.fixed.title" = "Fixed Mapping (locked in v1)";
 "mouse_mode.fixed.subtitle" = "These buttons are fixed in mouse mode; v2 will allow customization. The voice key still triggers voice and cannot be changed.";
+"mouse_mode.mapping.title" = "Button Mapping (Mouse Mode)";
+"mouse_mode.mapping.subtitle" = "Same remote as the Buttons page. Reserved slots show the fixed mouse function and are greyed out; unreserved slots show the mapping-page setting. This page is read-only — edit on the Buttons page.";
+"mouse_mode.hold.accelerate" = "Hold to accelerate";
+"mouse_mode.slot.locked" = "Fixed in mouse mode, read-only";
 "remote_button.power" = "Power";
 "remote_button.up" = "Up";
 "remote_button.left" = "Left";

@@ -2098,14 +2098,15 @@ final class HIDRemoteMonitor {
             )
             return true
         }
-        // 映射页绑定的「切换鼠标模式」优先级最高：必须排在 `mouseModeResolver` 之前，
-        // 否则会被其写死的「菜单 = 右键」等默认动作覆盖。
-        // 严格按当前 trigger 判定：绑在双击就只在双击时切换，绑在单击就只在单击时切换，
-        // 互不串扰。这样「菜单双击=切换、菜单单击=上下文菜单」能各走各的手势判定。
-        let toggleMapped = settings.configuredAction(
-            for: button, trigger: trigger, profileID: profileID
-        ).action == .mouseModeToggle
-        if toggleMapped {
+        // 唯一的动作来源：手势捕获到的绑定优先，否则按当前 trigger 查映射页。
+        // 后续所有动作（含切换鼠标模式）都只依据这一份 configured 判定，
+        // 保证「映射页配什么、按键就做什么」——单击是单击、双击是双击，任何键一视同仁。
+        let configured = captured ?? settings.configuredAction(
+            for: button,
+            trigger: trigger,
+            profileID: profileID
+        )
+        if configured.action == .mouseModeToggle {
             MouseModeController.shared.toggle()
             AppLogger.shared.write(
                 "MOUSE MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue) source=mapping"
@@ -2113,37 +2114,15 @@ final class HIDRemoteMonitor {
             return true
         }
         if let resolution = mouseModeResolver?(profileID, button, trigger) {
-            switch resolution {
-            case .toggle:
-                MouseModeController.shared.toggle()
-                AppLogger.shared.write(
-                    "MOUSE MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue)"
+            guard case .action(let configured) = resolution else { return true }
+            guard MouseModeController.shared.perform(configured) else {
+                diagnosticLogger(
+                    "MOUSE MODE action failed button=\(button.rawValue) action=\(configured.action.rawValue)"
                 )
-                return true
-            case .action(let configured):
-                guard MouseModeController.shared.perform(configured) else {
-                    diagnosticLogger(
-                        "MOUSE MODE action failed button=\(button.rawValue) action=\(configured.action.rawValue)"
-                    )
-                    return false
-                }
-                AppLogger.shared.write(
-                    "MOUSE MODE phase=action button=\(button.rawValue) trigger=\(trigger.rawValue) action=\(configured.action.rawValue)"
-                )
-                return true
+                return false
             }
-        }
-        let configured = captured ?? settings.configuredAction(
-            for: button,
-            trigger: trigger,
-            profileID: profileID
-        )
-        if configured.action == .mouseModeToggle {
-            // 映射页绑定的「切换鼠标模式」：无论鼠标模式当前状态、无论侧栏总开关，
-            // 遥控器都能进入 / 退出鼠标模式。
-            MouseModeController.shared.toggle()
             AppLogger.shared.write(
-                "MOUSE MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue) source=mapping"
+                "MOUSE MODE phase=action button=\(button.rawValue) trigger=\(trigger.rawValue) action=\(configured.action.rawValue)"
             )
             return true
         }

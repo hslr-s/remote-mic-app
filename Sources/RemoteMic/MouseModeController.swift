@@ -78,11 +78,13 @@ final class MouseModeController: ObservableObject {
     /// 任何内置开关键，确保「按键映射」页是唯一权威来源。
     func resolve(_ button: RemoteButton, _ trigger: ButtonTrigger) -> Resolution? {
         guard isActive else { return nil }
+        // 按槽位精确判定占用：菜单键只占用单击，双击 / 长按保持映射页原绑定。
         guard let action = MouseModeDefaults.binding(
             for: button,
+            trigger: trigger,
             volumeScrollInverted: configuration.volumeScrollInverted
         ) else {
-            return nil // 其他键保持原有绑定
+            return nil // 未被占用的槽位 / 键保持原有绑定
         }
         return .action(ConfiguredButtonAction(action: action, shortcut: nil))
     }

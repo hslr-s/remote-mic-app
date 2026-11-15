@@ -56,8 +56,28 @@ enum MouseModeDefaults {
     ]
 
     /// 返回某键在鼠标模式下的固定动作；不在集合内返回 `nil`（passthrough）。
+    ///
+    /// 保留无 trigger 版本供「整键占用」展示（方向 / OK / 音量三个槽位都占用）。
+    /// 实际运行时请用 `binding(for:trigger:volumeScrollInverted:)`，它按槽位精确判定：
+    /// 菜单键只占用单击这一个槽位，双击 / 长按仍走映射页自定义。
     static func binding(
         for button: RemoteButton,
+        volumeScrollInverted: Bool
+    ) -> ButtonAction? {
+        binding(for: button, trigger: .singleClick, volumeScrollInverted: volumeScrollInverted)
+    }
+
+    /// 按「键 + 触发方式」精确判定鼠标模式占用。
+    ///
+    /// - 方向键：单击/双击/长按都由「按下=步进、按住=加速」的边沿逻辑接管，不进手势；
+    ///   三个槽位都算占用，展示固定「移动」说明。
+    /// - OK：整键占用为鼠标左键。
+    /// - 菜单：**只占用单击** = 鼠标右键；双击 / 长按 passthrough 到映射页（可自定义）。
+    /// - 音量 ±：整键占用为滚轮上 / 下（可互换）。
+    /// - 其他键：`nil`，passthrough。
+    static func binding(
+        for button: RemoteButton,
+        trigger: ButtonTrigger,
         volumeScrollInverted: Bool
     ) -> ButtonAction? {
         switch button {
@@ -65,12 +85,27 @@ enum MouseModeDefaults {
         case .down: return .mouseMoveDown
         case .left: return .mouseMoveLeft
         case .right: return .mouseMoveRight
-        case .ok: return .mouseLeftClick
-        case .menu: return .mouseRightClick
-        case .volumeUp: return volumeScrollInverted ? .mouseScrollDown : .mouseScrollUp
-        case .volumeDown: return volumeScrollInverted ? .mouseScrollUp : .mouseScrollDown
-        default: return nil
+        case .ok:
+            return .mouseLeftClick
+        case .menu:
+            // 只占用单击这一个槽位。
+            return trigger == .singleClick ? .mouseRightClick : nil
+        case .volumeUp:
+            return volumeScrollInverted ? .mouseScrollDown : .mouseScrollUp
+        case .volumeDown:
+            return volumeScrollInverted ? .mouseScrollUp : .mouseScrollDown
+        default:
+            return nil
         }
+    }
+
+    /// 某键某槽位在鼠标模式下是否被固定占用。
+    static func isReserved(
+        button: RemoteButton,
+        trigger: ButtonTrigger,
+        volumeScrollInverted: Bool
+    ) -> Bool {
+        binding(for: button, trigger: trigger, volumeScrollInverted: volumeScrollInverted) != nil
     }
 
     /// 方向键对应的屏幕位移。
