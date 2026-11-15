@@ -22,10 +22,12 @@ final class MouseModeController: ObservableObject {
 
     // MARK: - 配置
 
-    /// 由 `AppSettings` 在加载与每次修改后推送；关闭总开关时同步退出模式。
+    /// 由 `AppSettings` 在加载与每次修改后推送。
+    /// 勾选总开关即视为「进入鼠标模式」：自动激活，使方向键立即接管指针；
+    /// 取消勾选则退出模式。TV 键的切换仍可用作运行期快速开关。
     func apply(configuration: MouseModeConfiguration) {
         self.configuration = configuration
-        if !configuration.enabled { setActive(false) }
+        setActive(configuration.enabled)
     }
 
     // MARK: - 开关
