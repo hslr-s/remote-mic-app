@@ -2,11 +2,12 @@ import Combine
 import Dispatch
 import Foundation
 
-/// 鼠标模式运行时控制器：持有开关、当前配置，解析按键，驱动线性加速移动。
+/// 鼠标模式运行时控制器：持有激活状态、当前配置，解析按键，驱动线性加速移动。
 ///
 /// 单例设计让 `HIDRemoteMonitor` / `RemoteButtonInteraction` 的薄 hook 默认咨询本实例，
 /// 从而无需改动协调器构造点，diff 最小、便于作者整体采纳或丢弃。
-/// `enabled = false` 时 `resolve` / `edge` 全部返回「不接管」，稳定行为零变化。
+/// 进入 / 退出只由「按键映射」页绑定的「切换鼠标模式」动作触发；未激活时
+/// `resolve` / `edge` 全部返回「不接管」，稳定行为零变化。
 final class MouseModeController: ObservableObject {
     static let shared = MouseModeController()
 
@@ -32,14 +33,12 @@ final class MouseModeController: ObservableObject {
     // MARK: - 配置
 
     /// 由 `AppSettings` 在加载与每次修改后推送。
-    /// 总开关关闭时强制退出鼠标模式；开启时不自动激活——
-    /// 激活 / 退出由映射页绑定的「切换鼠标模式」动作（或 TV 键）用遥控器触发。
+    /// 配置变化不改变激活状态——进入 / 退出只由映射页绑定的「切换鼠标模式」动作触发。
     func apply(configuration: MouseModeConfiguration) {
         self.configuration = configuration
         cursorFeedback.setRingColor(
             MouseModeConfiguration.cursorRingColor(from: configuration.cursorRingColorHex)
         )
-        if !configuration.enabled { setActive(false) }
     }
 
     // MARK: - 开关

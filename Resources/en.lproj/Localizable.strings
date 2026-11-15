@@ -346,9 +346,7 @@
 "settings.section.connection" = "Connection";
 "settings.section.buttons" = "Buttons";
 "settings.section.mouse_mode" = "Mouse Mode";
-"mouse_mode.page.subtitle" = "Use the direction keys to move the pointer, the OK key as left click, the menu key as right click, and volume keys as the scroll wheel. Toggle in and out with one key.";
-"mouse_mode.enable.title" = "Enable Mouse Mode";
-"mouse_mode.enable.help" = "When off, every button keeps its original behavior and stable features are unaffected.";
+"mouse_mode.page.subtitle" = "Use the direction keys to move the pointer, the OK key as left click, the menu key as right click, and volume keys as the scroll wheel. Bind \"Toggle Mouse Mode\" in Button Mapping to enter or exit.";
 "mouse_mode.cursor_ring.title" = "Cursor Ring Color";
 "mouse_mode.cursor_ring.subtitle" = "Color of the ring around the pointer in Mouse Mode, used to show the mode is active.";
 "mouse_mode.cursor_ring.custom" = "Custom";

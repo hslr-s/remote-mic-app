@@ -26,7 +26,6 @@ struct MouseModeSettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 header
-                enableSection
                 cursorRingSection
                 toggleSection
                 mappingPreviewSection
@@ -45,14 +44,6 @@ struct MouseModeSettingsView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
         }
-    }
-
-    private var enableSection: some View {
-        Toggle(isOn: config.enabled) {
-            Text(localization.text("mouse_mode.enable.title"))
-                .font(.system(size: 13, weight: .medium))
-        }
-        .help(localization.text("mouse_mode.enable.help"))
     }
 
     /// 光标外环圈颜色：`nil` 跟随系统强调色；预设色板 + 自定义 ColorPicker。

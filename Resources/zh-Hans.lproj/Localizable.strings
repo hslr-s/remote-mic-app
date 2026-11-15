@@ -346,9 +346,7 @@
 "settings.section.connection" = "连接";
 "settings.section.buttons" = "按键";
 "settings.section.mouse_mode" = "鼠标模式";
-"mouse_mode.page.subtitle" = "用方向键移动指针、确认键左键、菜单键右键、音量键滚轮。开启后可一键进出。";
-"mouse_mode.enable.title" = "启用鼠标模式";
-"mouse_mode.enable.help" = "关闭时所有按键保持原有行为，不影响稳定功能。";
+"mouse_mode.page.subtitle" = "用方向键移动指针、确认键左键、菜单键右键、音量键滚轮。在「按键映射」页绑定「切换鼠标模式」即可进出。";
 "mouse_mode.cursor_ring.title" = "光标外环圈颜色";
 "mouse_mode.cursor_ring.subtitle" = "鼠标模式下跟随光标的指示圈颜色，用于标识当前处于鼠标模式。";
 "mouse_mode.cursor_ring.custom" = "自定义";

@@ -11,6 +11,7 @@
 - [ ] 鼠标模式（Mouse Mode）
   - 2026-11-15：分支 `feature/mouse-mode` 从 `origin/main`（`8ac30cf2`）开出；`feature/mouse-mode/PRODUCT_SPEC.md` 已立。v1 范围：全局开关、启用/退出键（按键+触发）、方向键步进+线性加速移动、确认=左键、菜单=右键、音量键=滚轮（可互换方向）、其余键保持原绑定（passthrough）、语音键锁定（走语音，不可改）。新增 `MouseModeConfiguration`/`MouseInjector`/`MouseModeController`/`MouseModeSettingsView` 四个独立文件；`ButtonAction` 追加 8 个鼠标动作；`HIDRemoteMonitor`/`RemoteButtonInteraction` 各加一个默认咨询单例的薄 hook；配置存 `AppSettings.mouseModeConfiguration`（不复用作者既有的 `modes` 字段）。方向/确认/菜单映射 v1 写死置灰。
   - 待完成：本地 `swift build`/`swift test` 验证、设置页中英文浅/深色截图、真实遥控器 + 蓝牙 + 辅助功能实机验收。v2（独立计划）再开放「任意键映射到任意鼠标动作」编辑。
+  - 2026-11-15 增量（`feature/mouse-mode`）：按用户要求移除「启用鼠标模式」开关，进入/退出只由「按键映射」页绑定的「切换鼠标模式」决定（绑了就能用，无需额外开关）；旧配置中的 `enabled` 字段由 Codable 忽略，无迁移负担。
   - 2026-11-15 增量（`feature/mouse-mode`）：修复方向键 release 未送达导致的「一按冲到屏幕边缘」根因（见 `Bugs/2026-11-15-mouse-mode-press-runs-to-screen-edge.md`）；修复按左键后蓝色反馈圈消失（反馈圈在鼠标模式下改为常驻模式指示器，见 `Bugs/2026-11-15-mouse-mode-feedback-ring-disappears-after-click.md`）；新增光标外环圈颜色配置（`cursorRingColorHex`，nil=跟随系统，预设色板 + ColorPicker，仅影响鼠标模式指示圈）。相关单元测试与离屏截图已过，实机验收仍待完成。
 
 - [ ] 状态菜单显示已连接遥控器的电量（#860）

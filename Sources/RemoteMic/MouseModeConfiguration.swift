@@ -8,9 +8,6 @@ import Foundation
 /// 配置只描述「开关、启用键、滚轮互换、加速参数」，方向 / 确认 / 菜单的鼠标映射是写死的
 /// （见 `MouseModeDefaults`），v2 若要放开编辑只加一个可选的覆盖字典即可。
 struct MouseModeConfiguration: Codable, Equatable {
-    /// 全局开关，默认关闭：关闭时整条运行时链路 passthrough，稳定行为零变化。
-    var enabled: Bool = false
-
     /// 鼠标模式光标外环圈颜色（不含 `#` 的 RRGGBB，如 `0A84FF`）。
     /// `nil` 表示跟随系统强调色；旧配置缺字段时自然解码为 `nil`，行为不变。
     var cursorRingColorHex: String? = nil

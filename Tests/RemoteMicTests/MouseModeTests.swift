@@ -55,9 +55,8 @@ struct MouseModeTests {
 
     // MARK: - 配置
 
-    @Test func defaultConfigurationIsDisabled() {
+    @Test func defaultConfigurationNeedsNoFeatureToggle() {
         let config = MouseModeConfiguration()
-        #expect(!config.enabled)
         #expect(config.toggle.button == .tv)
         #expect(config.toggle.trigger == .singleClick)
         #expect(config.acceleration.isValid)
@@ -129,10 +128,10 @@ struct MouseModeTests {
 
     // MARK: - 控制器解析
 
-    @Test func resolveReturnsNilWhenFeatureDisabled() {
+    @Test func resolveReturnsNilWhenInactive() {
         let controller = MouseModeController()
         controller.apply(configuration: MouseModeConfiguration())
-        // 功能关闭：所有键（含默认开关键 .tv）完全 passthrough，不接管。
+        // 未激活（尚未绑定按键切换进入）：所有键完全 passthrough，不接管。
         #expect(controller.resolve(.up, .singleClick) == nil)
         #expect(controller.resolve(.ok, .singleClick) == nil)
         #expect(controller.resolve(.tv, .singleClick) == nil)
@@ -140,7 +139,6 @@ struct MouseModeTests {
 
     @Test func resolveNoBuiltInToggleKey() {
         var config = MouseModeConfiguration()
-        config.enabled = true
         config.toggle = MouseModeConfiguration.MouseModeToggle(button: .tv, trigger: .singleClick)
         let controller = MouseModeController()
         controller.apply(configuration: config)
@@ -155,7 +153,6 @@ struct MouseModeTests {
 
     @Test func resolveActiveMouseButtonsMappedRegardlessOfToggleConfig() {
         var config = MouseModeConfiguration()
-        config.enabled = true
         config.toggle = MouseModeConfiguration.MouseModeToggle(button: .tv, trigger: .singleClick)
         let controller = MouseModeController()
         controller.apply(configuration: config)
@@ -167,17 +164,15 @@ struct MouseModeTests {
 
     @Test func nonToggleKeyDoesNotToggleWhenInactive() {
         var config = MouseModeConfiguration()
-        config.enabled = false
         config.toggle = MouseModeConfiguration.MouseModeToggle(button: .tv, trigger: .singleClick)
         let controller = MouseModeController()
         controller.apply(configuration: config)
-        // 关闭时，开关键的非切换触发走原映射（resolve 返回 nil，由正常路径处理）。
+        // 未激活时，开关键的非切换触发走原映射（resolve 返回 nil，由正常路径处理）。
         #expect(controller.resolve(.tv, .doubleClick) == nil)
     }
 
     @Test func resolveMapsMouseButtonsWhenActive() {
-        var config = MouseModeConfiguration()
-        config.enabled = true
+        let config = MouseModeConfiguration()
         let controller = MouseModeController()
         controller.apply(configuration: config)
         controller.setActive(true)
@@ -196,12 +191,9 @@ struct MouseModeTests {
 
     @Test func edgeConsumesDirectionKeysOnlyWhenActive() {
         let controller = MouseModeController()
-        controller.apply(configuration: MouseModeConfiguration()) // 关闭
-        #expect(controller.edge(.up, .press) == false)
+        controller.apply(configuration: MouseModeConfiguration())
+        #expect(controller.edge(.up, .press) == false) // 未激活
 
-        var config = MouseModeConfiguration()
-        config.enabled = true
-        controller.apply(configuration: config)
         controller.setActive(true)
 
         #expect(controller.edge(.up, .press) == true)
