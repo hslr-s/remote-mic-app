@@ -36,6 +36,9 @@ final class MouseModeController: ObservableObject {
     /// 激活 / 退出由映射页绑定的「切换鼠标模式」动作（或 TV 键）用遥控器触发。
     func apply(configuration: MouseModeConfiguration) {
         self.configuration = configuration
+        cursorFeedback.setRingColor(
+            MouseModeConfiguration.cursorRingColor(from: configuration.cursorRingColorHex)
+        )
         if !configuration.enabled { setActive(false) }
     }
 

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// 鼠标模式的持久化配置。
@@ -9,6 +10,40 @@ import Foundation
 struct MouseModeConfiguration: Codable, Equatable {
     /// 全局开关，默认关闭：关闭时整条运行时链路 passthrough，稳定行为零变化。
     var enabled: Bool = false
+
+    /// 鼠标模式光标外环圈颜色（不含 `#` 的 RRGGBB，如 `0A84FF`）。
+    /// `nil` 表示跟随系统强调色；旧配置缺字段时自然解码为 `nil`，行为不变。
+    var cursorRingColorHex: String? = nil
+
+    /// 把 hex 解析为 sRGB 颜色；格式非法或 `nil` 返回 `nil`（跟随系统）。
+    static func cursorRingColor(from hex: String?) -> NSColor? {
+        guard let hex else { return nil }
+        var value = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.hasPrefix("#") { value.removeFirst() }
+        guard value.count == 6, let number = UInt32(value, radix: 16) else { return nil }
+        return NSColor(
+            srgbRed: CGFloat((number >> 16) & 0xFF) / 255,
+            green: CGFloat((number >> 8) & 0xFF) / 255,
+            blue: CGFloat(number & 0xFF) / 255,
+            alpha: 1
+        )
+    }
+
+    /// 把颜色转回设置页使用的 hex；无法转到 sRGB 时返回 `nil`。
+    static func cursorRingHexString(from color: NSColor) -> String? {
+        guard let srgb = color.usingColorSpace(.sRGB) else { return nil }
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        srgb.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        return String(
+            format: "%02X%02X%02X",
+            Int((red * 255).rounded()),
+            Int((green * 255).rounded()),
+            Int((blue * 255).rounded())
+        )
+    }
 
     /// 启用 / 退出鼠标模式的「按键 + 触发方式」。
     var toggle: MouseModeToggle = MouseModeToggle()

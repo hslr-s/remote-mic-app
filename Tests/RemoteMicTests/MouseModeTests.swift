@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import RemoteMic
 
@@ -67,6 +68,63 @@ struct MouseModeTests {
         accel.baseStep = 100
         accel.maxStep = 50
         #expect(!accel.isValid)
+    }
+
+    /// 光标外环颜色：nil=跟随系统；旧配置缺字段自然解码为 nil；非法输入不接管。
+    @Test func cursorRingColorParsesHexAndRejectsInvalidValues() {
+        #expect(MouseModeConfiguration.cursorRingColor(from: nil) == nil)
+        #expect(MouseModeConfiguration.cursorRingColor(from: "") == nil)
+        #expect(MouseModeConfiguration.cursorRingColor(from: "ZZZZZZ") == nil)
+        #expect(MouseModeConfiguration.cursorRingColor(from: "0A84F") == nil)
+        let color = MouseModeConfiguration.cursorRingColor(from: "0A84FF")
+        let withHash = MouseModeConfiguration.cursorRingColor(from: "#0A84FF")
+        #expect(color != nil)
+        #expect(withHash != nil)
+        #expect(MouseModeConfiguration.cursorRingHexString(from: color!) == "0A84FF")
+        #expect(MouseModeConfiguration.cursorRingHexString(from: withHash!) == "0A84FF")
+    }
+
+    @Test func cursorRingColorPersistsAndLegacyConfigurationStaysOnSystemColor() throws {
+        var config = MouseModeConfiguration()
+        #expect(config.cursorRingColorHex == nil)
+        config.cursorRingColorHex = "FF453A"
+        let data = try JSONEncoder().encode(config)
+        let decoded = try JSONDecoder().decode(MouseModeConfiguration.self, from: data)
+        #expect(decoded.cursorRingColorHex == "FF453A")
+
+        let legacyJSON = """
+        {"enabled":false,"toggle":{"button":"tv","trigger":"singleClick"},
+         "volumeScrollInverted":false,
+         "acceleration":{"baseStep":10,"acceleration":20,"maxStep":80,"stepInterval":16}}
+        """
+        let legacy = try JSONDecoder().decode(
+            MouseModeConfiguration.self,
+            from: Data(legacyJSON.utf8)
+        )
+        #expect(legacy.cursorRingColorHex == nil)
+    }
+
+    @Test func cursorRingColorHasCompleteLocalizedCopy() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        for localization in ["zh-Hans", "en"] {
+            let contents = try String(
+                contentsOf: root.appendingPathComponent(
+                    "Resources/\(localization).lproj/Localizable.strings"
+                ),
+                encoding: .utf8
+            )
+            for key in [
+                "mouse_mode.cursor_ring.title",
+                "mouse_mode.cursor_ring.subtitle",
+                "mouse_mode.cursor_ring.custom",
+                "mouse_mode.cursor_ring.follow_system",
+            ] {
+                #expect(contents.contains("\"\(key)\" ="))
+            }
+        }
     }
 
     // MARK: - 控制器解析

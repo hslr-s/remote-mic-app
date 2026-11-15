@@ -18,11 +18,16 @@ struct MouseModeSettingsView: View {
     private var inverted: Bool { settings.mouseModeConfiguration.volumeScrollInverted }
     private var profileID: UUID? { settings.selectedRemoteProfileID }
 
+    private static let presetRingColors = [
+        "0A84FF", "FF453A", "30D158", "FF9F0A", "BF5AF2", "FFD60A",
+    ]
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 header
                 enableSection
+                cursorRingSection
                 toggleSection
                 mappingPreviewSection
                 scrollSection
@@ -48,6 +53,68 @@ struct MouseModeSettingsView: View {
                 .font(.system(size: 13, weight: .medium))
         }
         .help(localization.text("mouse_mode.enable.help"))
+    }
+
+    /// 光标外环圈颜色：`nil` 跟随系统强调色；预设色板 + 自定义 ColorPicker。
+    private var cursorRingSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle(localization.text("mouse_mode.cursor_ring.title"))
+            Text(localization.text("mouse_mode.cursor_ring.subtitle"))
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 12) {
+                ColorPicker(
+                    localization.text("mouse_mode.cursor_ring.custom"),
+                    selection: ringColorBinding
+                )
+                .font(.system(size: 13))
+                Button(localization.text("mouse_mode.cursor_ring.follow_system")) {
+                    config.cursorRingColorHex.wrappedValue = nil
+                }
+                .disabled(config.cursorRingColorHex.wrappedValue == nil)
+            }
+            HStack(spacing: 8) {
+                ForEach(Self.presetRingColors, id: \.self) { hex in
+                    Button {
+                        config.cursorRingColorHex.wrappedValue = hex
+                    } label: {
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(Color(nsColor: MouseModeConfiguration.cursorRingColor(from: hex) ?? .controlAccentColor))
+                            .frame(width: 26, height: 26)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 5)
+                                    .stroke(
+                                        config.cursorRingColorHex.wrappedValue == hex
+                                            ? Color.primary : Color.clear,
+                                        lineWidth: 2
+                                    )
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .help(hex)
+                    .accessibilityLabel(hex)
+                }
+            }
+        }
+    }
+
+    private var ringColorBinding: Binding<Color> {
+        Binding(
+            get: {
+                guard let ns = MouseModeConfiguration.cursorRingColor(
+                    from: config.cursorRingColorHex.wrappedValue
+                ) else {
+                    return Color(nsColor: .controlAccentColor)
+                }
+                return Color(nsColor: ns)
+            },
+            set: { newColor in
+                config.cursorRingColorHex.wrappedValue = MouseModeConfiguration.cursorRingHexString(
+                    from: NSColor(newColor)
+                )
+            }
+        )
     }
 
     private var toggleSection: some View {
