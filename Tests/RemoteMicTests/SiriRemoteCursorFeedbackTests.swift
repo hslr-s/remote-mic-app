@@ -133,6 +133,13 @@ struct SiriRemoteCursorFeedbackTests {
         }
     }
 
+    /// 回归：鼠标模式的反馈圈是「模式指示器」，点击/静止/滚动后都不能自动隐藏；
+    /// 触摸板反馈实例未锁定，仍保持原来的瞬时反馈行为。
+    @Test func modeIndicatorPinnedFeedbackNeverAutoHides() {
+        #expect(SiriRemoteCursorFeedbackState.shouldAutoHide(isModeIndicatorPinned: false))
+        #expect(!SiriRemoteCursorFeedbackState.shouldAutoHide(isModeIndicatorPinned: true))
+    }
+
     @Test func feedbackFrameCentersOnTheVisibleCursorBody() {
         let point = CGPoint(x: 400, y: 300)
         let layout = SiriRemoteCursorFeedbackLayout.layout(

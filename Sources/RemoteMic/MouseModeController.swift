@@ -46,12 +46,15 @@ final class MouseModeController: ObservableObject {
         isActive = active
         if !active {
             stopAllMovement(reason: "mode_off")
-            // 退出立即隐藏光标反馈圈，不等它自己的 idle 超时（此前圈会滞留）。
-            cursorFeedback.cancelInteraction(reason: "mouse_mode_off")
+            // 退出解除常驻锁定并立即隐藏反馈圈，不等它自己的 idle 超时。
+            cursorFeedback.setModeIndicatorPinned(false, reason: "mouse_mode_off")
             AppLogger.shared.write("MOUSE MODE phase=state result=off")
             return
         }
-        // 进入模式：立即显示指针圈（光标位置由注入器每步从系统真实坐标读取，
+        // 进入模式：反馈圈兼作「当前处于鼠标模式」的常驻指示器，先锁定，
+        // 防止随后点击/静止触发自动隐藏（此前按一下左键圈就消失）。
+        cursorFeedback.setModeIndicatorPinned(true, reason: "mouse_mode_on")
+        // 立即显示指针圈（光标位置由注入器每步从系统真实坐标读取，
         // 无需在此播种，避免「跳回原处 / 飞到原点」）。
         cursorFeedback.handle(.pointerMoved(
             deltaX: 0, deltaY: 0,
