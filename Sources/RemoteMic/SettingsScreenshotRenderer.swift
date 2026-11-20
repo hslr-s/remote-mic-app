@@ -31,6 +31,8 @@ enum SettingsScreenshotRenderer {
 
     private static let sections: [SettingsSection] = [
         .mapping,
+        .mouseMode,
+        .customModes,
         .applications,
         .commonPhrases,
         .macros,
@@ -238,6 +240,20 @@ enum SettingsScreenshotRenderer {
             "REMOTE_MIC_SETTINGS_SCREENSHOT_VOICE_KEY_MODE"
         ], let voiceKeyMode = VoiceKeyMode(rawValue: voiceKeyModeValue) {
             settings.voiceKeyMode = voiceKeyMode
+        }
+        if ProcessInfo.processInfo.environment[
+            "REMOTE_MIC_SETTINGS_SCREENSHOT_CUSTOM_MODES_FIXTURE"
+        ] == "1" {
+            var demo = CustomMode(
+                name: language == .english ? "Reading" : "阅读模式",
+                showsIndicator: true,
+                indicatorColorHex: "30D158"
+            )
+            demo.setAction(ConfiguredButtonAction(action: .pageDown, shortcut: nil),
+                           for: .down, trigger: .singleClick)
+            demo.setAction(ConfiguredButtonAction(action: .pageUp, shortcut: nil),
+                           for: .up, trigger: .singleClick)
+            settings.customModeConfiguration = CustomModeConfiguration(modes: [demo])
         }
         seedStatisticsForScreenshot(settings)
         let historyDirectory = outputDirectory.appendingPathComponent(UUID().uuidString)

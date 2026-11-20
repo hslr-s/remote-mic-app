@@ -69,6 +69,13 @@ struct SiriRemoteCursorFeedbackState: Equatable {
     ) -> Bool {
         hypot(current.x - target.x, current.y - target.y) <= tolerance
     }
+
+    /// 鼠标模式下反馈圈兼作「当前处于鼠标模式」的常驻指示器。
+    /// 锁定时不安排点击/静止/滚动后的自动隐藏，也不做 AX 命中测试；
+    /// 触摸板反馈实例保持未锁定，仍是瞬时反馈，行为不变。
+    static func shouldAutoHide(isModeIndicatorPinned: Bool) -> Bool {
+        !isModeIndicatorPinned
+    }
 }
 
 struct SiriRemoteCursorFeedbackInteractionState {
@@ -175,6 +182,7 @@ final class SiriRemoteCursorFeedbackController {
     private var hideWorkItem: DispatchWorkItem?
     private var lastRenderUptime: TimeInterval = 0
     private var isFeedbackVisible = false
+    private var isModeIndicatorPinned = false
     private var interactionState = SiriRemoteCursorFeedbackInteractionState()
     private var hoveredElement: AXUIElement?
     private var hoveredElementDepth = 0
@@ -311,6 +319,40 @@ final class SiriRemoteCursorFeedbackController {
         return false
     }
 
+    /// 设置鼠标模式光标外环颜色；`nil` 回到系统强调色。立即重绘当前圈。
+    func setRingColor(_ color: NSColor?) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.setRingColor(color)
+            }
+            return
+        }
+        view.ringColor = color
+        view.needsDisplay = true
+    }
+
+    /// 进入鼠标模式时锁定为常驻指示器：清掉可能残留的自动隐藏任务；
+    /// 退出时解锁并立即隐藏（附带清理悬停 AX 状态）。
+    func setModeIndicatorPinned(_ pinned: Bool, reason: String) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.setModeIndicatorPinned(pinned, reason: reason)
+            }
+            return
+        }
+        guard isModeIndicatorPinned != pinned else { return }
+        isModeIndicatorPinned = pinned
+        if pinned {
+            hideWorkItem?.cancel()
+            hideWorkItem = nil
+            logger(
+                "APPLE REMOTE TOUCH FEEDBACK phase=mode_indicator result=pinned reason=\(reason)"
+            )
+        } else {
+            cancelInteraction(reason: reason)
+        }
+    }
+
     func stop() {
         cancelInteraction(reason: "app_stop")
     }
@@ -371,6 +413,9 @@ final class SiriRemoteCursorFeedbackController {
     }
 
     private func scheduleHide(after delay: TimeInterval) {
+        guard SiriRemoteCursorFeedbackState.shouldAutoHide(
+            isModeIndicatorPinned: isModeIndicatorPinned
+        ) else { return }
         hideWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             self?.hide(reason: "idle_timeout")
@@ -380,6 +425,9 @@ final class SiriRemoteCursorFeedbackController {
     }
 
     private func schedulePointerIdleEvaluation(after delay: TimeInterval) {
+        guard SiriRemoteCursorFeedbackState.shouldAutoHide(
+            isModeIndicatorPinned: isModeIndicatorPinned
+        ) else { return }
         hideWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             self?.resolvePointerIdleTarget()
@@ -521,6 +569,8 @@ final class SiriRemoteCursorFeedbackController {
 
 final class SiriRemoteCursorFeedbackView: NSView {
     var presentation: SiriRemoteCursorFeedbackState.Presentation = .pointer(scale: 1.0)
+    /// 鼠标模式自定义的外环颜色；`nil` 用系统强调色（触摸板反馈实例始终为 `nil`）。
+    var ringColor: NSColor?
 
     override var isFlipped: Bool { false }
 
@@ -543,10 +593,11 @@ final class SiriRemoteCursorFeedbackView: NSView {
             width: radius * 2,
             height: radius * 2
         ))
-        NSColor.controlAccentColor.withAlphaComponent(0.22).setStroke()
+        let color = ringColor ?? .controlAccentColor
+        color.withAlphaComponent(0.22).setStroke()
         halo.lineWidth = 7
         halo.stroke()
-        NSColor.controlAccentColor.withAlphaComponent(0.9).setStroke()
+        color.withAlphaComponent(0.9).setStroke()
         halo.lineWidth = 2
         halo.stroke()
     }

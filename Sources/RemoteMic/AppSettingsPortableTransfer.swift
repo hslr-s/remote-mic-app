@@ -73,6 +73,10 @@ extension AppSettings {
         case .openCustomApplication:
             guard let id = c.applicationProfileID, customApplicationProfile(id: id) != nil else { throw PortableTransferError.missingDependency("App 配置") }
             return .init(kind: .application, referenceID: id.uuidString)
+        case .customModeToggle:
+            // 自定义模式本身不随配置导出（独立 UserDefaults 键），切换目标在别处无意义。
+            // 降级为 disabled，避免导出把带本地 modeID 的绑定当成通用 host action 而校验失败。
+            return .init(kind: .disabled)
         default:
             guard PortableTransferCodec.hostActions.contains(c.action.rawValue) else { throw PortableTransferError.invalid(c.action.rawValue) }
             return .init(kind: .host, actionID: c.action.rawValue)

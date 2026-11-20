@@ -792,6 +792,12 @@ enum KeyboardInjector {
         case .openRemoteMic, .openCodex, .openWorkBuddy, .openClaude, .openCmux, .openWeChat, .openCursor, .openXcode,
              .openSlack, .openWeCom, .openNeteaseMusic, .openChrome, .openSafari, .openZed, .openDimAgent:
             break
+        case .mouseMoveUp, .mouseMoveDown, .mouseMoveLeft, .mouseMoveRight,
+             .mouseLeftClick, .mouseRightClick, .mouseScrollUp, .mouseScrollDown,
+             .mouseModeToggle, .customModeToggle:
+            // 鼠标动作由 MouseModeController / MouseInjector 处理；切换自定义模式由
+            // CustomModeController 分发。两者都不经过键盘注入路径。
+            AppLogger.shared.write("KEYBOARD ACTION ignored reason=controller_action action=\(action.rawValue)")
         }
         return true
     }

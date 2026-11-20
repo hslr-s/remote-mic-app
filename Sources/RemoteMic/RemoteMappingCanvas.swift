@@ -124,6 +124,11 @@ struct RemoteMappingCanvas: View {
     var onVoiceSettings: () -> Void = {}
     /// 方案作用域只覆盖 10 个普通按键；不在范围内的按键置灰且不可点。
     var reservedButtons: Set<RemoteButton> = []
+    /// 槽位级只读锁定（鼠标模式占用槽位 / 切换槽位用）：返回 true 的槽位置灰、加锁、不可点击。
+    /// 默认 nil 时普通映射页行为零变化。
+    var isSlotLocked: ((RemoteButton, ButtonTrigger) -> Bool)? = nil
+    /// 按住胶囊锁定（方向键整键占用时用）：返回 true 时置灰不可点。默认 nil 不锁定。
+    var isHoldLocked: ((RemoteButton) -> Bool)? = nil
 
     var body: some View {
         GeometryReader { geometry in
@@ -239,6 +244,7 @@ struct RemoteMappingCanvas: View {
         let selected = selectedButton == button
         let active = activeButtons.contains(button)
         let reserved = reservedButtons.contains(button)
+        let holdLocked = isHoldLocked?(button) == true
         return VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
                 Image(systemName: button.systemImage)
@@ -247,7 +253,14 @@ struct RemoteMappingCanvas: View {
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
                 Spacer(minLength: 0)
+                if holdLocked {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                        .help(localization.text("mouse_mode.slot.locked"))
+                }
                 Button {
+                    guard !holdLocked else { return }
                     selectedButton = button
                     onEditHold(button)
                 } label: {
@@ -268,29 +281,43 @@ struct RemoteMappingCanvas: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .disabled(holdLocked)
+                .opacity(holdLocked ? 0.55 : 1)
                 .help("\(button.displayName(using: localization)) · \(holdSummary(button))")
             }
 
             HStack(spacing: 4) {
                 ForEach(ButtonTrigger.allCases) { trigger in
+                    let slotLocked = isSlotLocked?(button, trigger) == true
                     Button {
+                        guard !slotLocked else { return }
                         selectedButton = button
                         onEdit(button, trigger)
                     } label: {
                         VStack(spacing: 1) {
-                            Text(trigger.displayName(using: localization))
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.secondary)
+                            HStack(spacing: 2) {
+                                Text(trigger.displayName(using: localization))
+                                    .font(.system(size: 12, weight: .medium))
+                                if slotLocked {
+                                    Image(systemName: "lock.fill").font(.system(size: 12))
+                                }
+                            }
+                            .foregroundStyle(.secondary)
                             Text(actionSummary(button, trigger))
                                 .font(.system(size: 12, weight: trigger == .singleClick ? .semibold : .regular))
                                 .lineLimit(1)
                                 .truncationMode(.tail)
+                                .foregroundStyle(slotLocked ? .secondary : .primary)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 5)
-                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                        .background(
+                            slotLocked ? AnyShapeStyle(Color.secondary.opacity(0.10)) : AnyShapeStyle(.quaternary),
+                            in: RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        )
                     }
                     .buttonStyle(.plain)
+                    .disabled(slotLocked)
                     .help(actionHelp(button: button, trigger: trigger))
                 }
             }

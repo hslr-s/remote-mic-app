@@ -628,17 +628,21 @@ struct ConfiguredButtonAction: Codable, Equatable {
     var shortcut: CustomKeyboardShortcut?
     var applicationProfileID: UUID?
     var macroID: String?
+    /// 切换自定义模式动作的目标模式 ID（`action == .customModeToggle` 时有效）。
+    var modeID: UUID?
 
     init(
         action: ButtonAction,
         shortcut: CustomKeyboardShortcut?,
         applicationProfileID: UUID? = nil,
-        macroID: String? = nil
+        macroID: String? = nil,
+        modeID: UUID? = nil
     ) {
         self.action = action
         self.shortcut = shortcut
         self.applicationProfileID = applicationProfileID
         self.macroID = macroID
+        self.modeID = modeID
     }
 
     static let disabled = ConfiguredButtonAction(action: .disabled, shortcut: nil)
@@ -985,6 +989,18 @@ enum ButtonAction: String, CaseIterable, Codable, Identifiable {
     case openSafari
     case openZed
     case openDimAgent
+    case mouseMoveUp
+    case mouseMoveDown
+    case mouseMoveLeft
+    case mouseMoveRight
+    case mouseLeftClick
+    case mouseRightClick
+    case mouseScrollUp
+    case mouseScrollDown
+    case mouseModeToggle
+    /// 切换自定义模式：目标模式 ID 由 `ConfiguredButtonAction.modeID` 携带。
+    /// 与「切换鼠标模式」一样配在按键映射页，由运行时统一按 configured.action 分发。
+    case customModeToggle
 
     var id: String { rawValue }
 
@@ -1061,6 +1077,16 @@ enum ButtonAction: String, CaseIterable, Codable, Identifiable {
         case .openSafari: return localization.text("action.open_safari")
         case .openZed: return localization.text("action.open_zed")
         case .openDimAgent: return localization.text("action.open_dim_agent")
+        case .mouseMoveUp: return localization.text("action.mouse_move_up")
+        case .mouseMoveDown: return localization.text("action.mouse_move_down")
+        case .mouseMoveLeft: return localization.text("action.mouse_move_left")
+        case .mouseMoveRight: return localization.text("action.mouse_move_right")
+        case .mouseLeftClick: return localization.text("action.mouse_left_click")
+        case .mouseRightClick: return localization.text("action.mouse_right_click")
+        case .mouseScrollUp: return localization.text("action.mouse_scroll_up")
+        case .mouseScrollDown: return localization.text("action.mouse_scroll_down")
+        case .mouseModeToggle: return localization.text("action.mouse_mode_toggle")
+        case .customModeToggle: return localization.text("action.custom_mode_toggle")
         }
     }
 
@@ -1236,6 +1262,10 @@ enum ButtonAction: String, CaseIterable, Codable, Identifiable {
              .openXcode, .openSlack, .openWeCom, .openNeteaseMusic, .openChrome, .openSafari,
              .openZed, .openDimAgent:
             return .applications
+        case .mouseMoveUp, .mouseMoveDown, .mouseMoveLeft, .mouseMoveRight,
+             .mouseLeftClick, .mouseRightClick, .mouseScrollUp, .mouseScrollDown,
+             .mouseModeToggle, .customModeToggle:
+            return .systemAndMedia
         }
     }
 

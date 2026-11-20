@@ -30,7 +30,11 @@ struct SettingsSection: RawRepresentable, Hashable, CaseIterable, Identifiable {
     static let commonPhrases = SettingsSection(rawValue: "commonPhrases")
     static let permissions = SettingsSection(rawValue: "permissions")
     static let about = SettingsSection(rawValue: "about")
-    static let allCases: [SettingsSection] = [.connection, .privateFeature, .macros, .buttonProfiles, .membership, .mapping, .applications, .statistics, .transcripts, .commonPhrases, .permissions, .about]
+    /// 鼠标模式：独立侧栏分区，不进入动作分类筛选。
+    static let mouseMode = SettingsSection(rawValue: "mouseMode")
+    /// 自定义模式：用户可新建的按键映射模式，独立侧栏分区。
+    static let customModes = SettingsSection(rawValue: "customModes")
+    static let allCases: [SettingsSection] = [.connection, .privateFeature, .macros, .buttonProfiles, .membership, .mapping, .applications, .statistics, .transcripts, .commonPhrases, .permissions, .about, .mouseMode, .customModes]
     static func supplemental(_ id: String) -> SettingsSection { SettingsSection(rawValue: "supplemental:" + id) }
     var supplementalID: String? { rawValue.hasPrefix("supplemental:") ? String(rawValue.dropFirst(13)) : nil }
     var id: String { rawValue }
@@ -49,6 +53,8 @@ struct SettingsSection: RawRepresentable, Hashable, CaseIterable, Identifiable {
         case .transcripts: return "settings.section.transcripts"
         case .permissions: return "settings.section.permissions"
         case .about: return "settings.section.settings"
+        case .mouseMode: return "settings.section.mouse_mode"
+        case .customModes: return "settings.section.custom_modes"
         default: return ""
         }
     }
@@ -71,6 +77,8 @@ struct SettingsSection: RawRepresentable, Hashable, CaseIterable, Identifiable {
         case .transcripts: return "text.bubble.fill"
         case .permissions: return "shield.lefthalf.filled"
         case .about: return "gearshape"
+        case .mouseMode: return "cursorarrow"
+        case .customModes: return "square.stack.3d.up"
         default: return "square"
         }
     }
@@ -201,6 +209,7 @@ enum SettingsPageBehavior {
 
     static let sidebarSectionOrder: [SettingsSection] = [
         .mapping,
+        .mouseMode,
         .applications,
         .macros,
         .buttonProfiles,
@@ -208,6 +217,7 @@ enum SettingsPageBehavior {
         .connection,
         .transcripts,
         .privateFeature,
+        .customModes,
         .about,
         .statistics,
     ]
@@ -1241,6 +1251,10 @@ struct SettingsView: View {
             transcriptHistoryPage
         case .permissions:
             aboutPage
+        case .mouseMode:
+            mouseModePage
+        case .customModes:
+            customModesPage
         case .about:
             aboutPage
                 .task(id: buttonProfileImportRequests.pendingRequest?.operationID) {
@@ -2163,6 +2177,12 @@ struct SettingsView: View {
     private func setMappingApplicationProfileID(_ id: UUID?, for button: RemoteButton, trigger: ButtonTrigger) {
         var configured = mappingConfiguration(for: button, trigger: trigger)
         configured.applicationProfileID = id
+        saveMappingBinding(configured, button: button, trigger: trigger)
+    }
+
+    private func setMappingModeID(_ id: UUID?, for button: RemoteButton, trigger: ButtonTrigger) {
+        var configured = mappingConfiguration(for: button, trigger: trigger)
+        configured.modeID = id
         saveMappingBinding(configured, button: button, trigger: trigger)
     }
 
@@ -3780,6 +3800,11 @@ struct SettingsView: View {
                 )
             }
 
+            // 「切换自定义模式」的目标模式：和「打开自定义 APP」同构，选具体模式写入 modeID。
+            if configured.action == .customModeToggle {
+                customModeTargetPicker(button: button, trigger: trigger, configured: configured)
+            }
+
             if button == .power && trigger == .singleClick && settings.experimentalContinuousRecordingEnabled {
                 Text("button_mapping.continuous_recording_experiment.power_managed")
                     .font(.system(size: 12))
@@ -4922,6 +4947,87 @@ struct SettingsView: View {
         }
         .padding(12)
         .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    /// 「切换自定义模式」动作的目标模式网格。模式列表为空时引导去创建，避免存进无效 modeID。
+    @ViewBuilder
+    private func customModeTargetPicker(
+        button: RemoteButton,
+        trigger: ButtonTrigger,
+        configured: ConfiguredButtonAction
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("custom_mode.target.title")
+                .font(.system(size: 14, weight: .semibold))
+            if settings.customModeConfiguration.modes.isEmpty {
+                HStack(spacing: 8) {
+                    Text("custom_mode.target.empty")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
+                    Button("custom_mode.target.create") {
+                        selectedSection = .customModes
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                }
+            } else {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 150), spacing: 8)],
+                    alignment: .leading,
+                    spacing: 8
+                ) {
+                    ForEach(settings.customModeConfiguration.modes) { mode in
+                        Button {
+                            setMappingModeID(mode.id, for: button, trigger: trigger)
+                        } label: {
+                            HStack(spacing: 8) {
+                                if mode.showsIndicator {
+                                    Circle()
+                                        .fill(Color(nsColor: mode.indicatorColor ?? .controlAccentColor))
+                                        .frame(width: 10, height: 10)
+                                }
+                                Text(mode.name)
+                                    .font(.system(size: 13, weight: .medium))
+                                Spacer()
+                                if configured.modeID == mode.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(Color.accentColor)
+                                }
+                            }
+                            .padding(10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .background(
+                            configured.modeID == mode.id
+                                ? Color.accentColor.opacity(0.10) : Color.primary.opacity(0.035),
+                            in: RoundedRectangle(cornerRadius: 8)
+                        )
+                    }
+                }
+                if let modeID = configured.modeID,
+                   !settings.customModeConfiguration.modes.contains(where: { $0.id == modeID }) {
+                    Text("custom_mode.target.deleted")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(12)
+        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var mouseModePage: some View {
+        MouseModeSettingsView(settings: settings, localization: localization)
+    }
+
+    private var customModesPage: some View {
+        CustomModesSettingsView(settings: settings, localization: localization)
     }
 
     private var applicationsPage: some View {
@@ -6087,6 +6193,12 @@ struct SettingsView: View {
             return settings.customApplicationProfile(id: configured.applicationProfileID)?.displayName
                 ?? localization.text("custom_application.not_configured")
         }
+        if configured.action == .customModeToggle {
+            let modeName = settings.customModeConfiguration.modes
+                .first { $0.id == configured.modeID }?.name
+                ?? localization.text("custom_mode.target.deleted_short")
+            return localization.text("custom_mode.action.summary_prefix") + modeName
+        }
         // 按键页 chip 与方案页、手机端共用同一套动作语义名：
         // 方向键不再单独显示符号，音量不再用 Vol+ 短标签。
         return configured.action.displayName(using: localization)
@@ -7088,6 +7200,8 @@ struct SettingsView: View {
         case .macros: macroFeature.sectionTitle
         case .buttonProfiles: macroFeature.buttonProfilesSectionTitle
         case .membership: membershipFeature.sectionTitle
+        case .mouseMode: localization.text("settings.section.mouse_mode")
+        case .customModes: localization.text("settings.section.custom_modes")
         default: supplementalPages.first { SettingsSection.supplemental($0.id) == section }?.title ?? ""
         }
     }

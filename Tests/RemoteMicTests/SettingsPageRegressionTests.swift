@@ -2205,6 +2205,7 @@ struct SettingsPageRegressionTests {
             membershipVisible: true
         ) == [
             .mapping,
+            .mouseMode,
             .applications,
             .macros,
             .buttonProfiles,
@@ -2212,6 +2213,7 @@ struct SettingsPageRegressionTests {
             .connection,
             .transcripts,
             .privateFeature,
+            .customModes,
             .about,
             .statistics,
         ])

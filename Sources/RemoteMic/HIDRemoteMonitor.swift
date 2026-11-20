@@ -209,6 +209,18 @@ final class HIDRemoteMonitor {
     private let permissionPoll: HIDPermissionPoll
     private let runtimePermissions: () -> Bool
     private let actionPerformer: (RemoteButton, ButtonTrigger, ConfiguredButtonAction) -> Bool
+
+    /// 鼠标模式薄 hook：默认咨询单例 `MouseModeController`，返回 `.toggle` / `.action` 表示接管；
+    /// 作者要移除本功能时删掉这一行与 `performConfiguredAction` 中的对应分支即可。
+    var mouseModeResolver: ((UUID?, RemoteButton, ButtonTrigger) -> MouseModeController.Resolution?)? = {
+        _, button, trigger in MouseModeController.shared.resolve(button, trigger)
+    }
+
+    /// 自定义模式薄 hook：模式激活时，槽位内的动作覆盖普通映射；未设置返回 nil 走原映射。
+    /// 「切换模式」动作本身配在普通映射里，和「切换鼠标模式」一样走下面的 configured 分发。
+    var customModeActionResolver: ((RemoteButton, ButtonTrigger) -> ConfiguredButtonAction?)? = {
+        CustomModeController.shared.resolvedAction(for: $0, trigger: $1)
+    }
     private let holdBeginPerformer: (ConfiguredButtonAction) -> Bool
     private let holdEndPerformer: (String) -> Void
     /// 解析该按键当前生效的单击与长按动作：方案覆盖优先，其次基础映射。
@@ -1514,6 +1526,10 @@ final class HIDRemoteMonitor {
                 continue
             }
 
+            // 「切换鼠标模式」由按键映射页的 trigger 精确决定，走正常的手势判定链路
+            // （见 performConfiguredAction）：单击仍是单击、双击仍是双击，不在此处抢先切换。
+            // 切勿在物理 press 边沿用 allCases 一刀切——那会让「双击绑定」被单击误触发。
+
             // Discovery may associate an existing configured device during the callback.
             let hasSingleClickOverride = settings.configuredActionOverride?(
                 profileID, button, .singleClick
@@ -1637,6 +1653,16 @@ final class HIDRemoteMonitor {
             lastPageRepeatAt.removeValue(forKey: usage)
             if let button = RemoteButton.usageMap[usage] {
                 if onRuntimeButton?(profileID, button, .release, reportMilliseconds) == true {
+                    continue
+                }
+                // 鼠标模式的方向键 press 在 RemoteButtonInteraction.handle 里被
+                // mouseModeEdgeHandler 消费后直接 return，不会创建 Interaction，
+                // 因此下面 isTracking(button) 对它恒为 false，release 永远送不到
+                // MouseModeController.edge(.release)：pressing 不清空、加速定时器不停，
+                // 光标一按就持续冲到屏幕边缘（真实鼠标移回中间才看似恢复）。
+                // 这里在 isTracking 门控之前把 release 交给同一个 edge handler。
+                if buttonInteractions.mouseModeEdgeHandler?(button, .release) == true {
+                    scheduleNonRepeatableRelease(for: button)
                     continue
                 }
                 if buttonInteractions.isTracking(button) {
@@ -2088,11 +2114,61 @@ final class HIDRemoteMonitor {
             )
             return true
         }
-        let configured = captured ?? settings.configuredAction(
-            for: button,
-            trigger: trigger,
-            profileID: profileID
-        )
+        // 唯一的动作来源，优先级：自定义模式内绑定 > 手势捕获 > 映射页普通绑定。
+        // 所有动作（含切换模式、切换鼠标模式）都只依据这一份 configured 判定，
+        // 保证「映射页配什么、按键就做什么」——单击是单击、双击是双击，任何键一视同仁。
+        // 切换模式就配在映射页里，和「切换鼠标模式」完全同一套机制。
+        let configured = customModeActionResolver?(button, trigger)
+            ?? captured
+            ?? settings.configuredAction(for: button, trigger: trigger, profileID: profileID)
+        if configured.action == .customModeToggle {
+            // 切换目标由动作载荷携带；模式被删导致目标缺失时不切换，记日志后吞掉。
+            guard let modeID = configured.modeID else {
+                diagnosticLogger("CUSTOM MODE toggle skipped reason=missing_mode_id")
+                return true
+            }
+            MouseModeController.shared.setActive(false)
+            CustomModeController.shared.toggle(modeID: modeID)
+            AppLogger.shared.write(
+                "CUSTOM MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue) mode_id=\(modeID.uuidString) source=mapping"
+            )
+            return true
+        }
+        if configured.action == .mouseModeToggle {
+            // 进入鼠标模式前退出自定义模式，保持两者互斥。
+            CustomModeController.shared.deactivate(reason: "mouse_mode_toggle")
+            MouseModeController.shared.toggle()
+            AppLogger.shared.write(
+                "MOUSE MODE phase=toggle button=\(button.rawValue) trigger=\(trigger.rawValue) source=mapping"
+            )
+            return true
+        }
+        // 自定义模式内的槽位动作：走与普通动作相同的 isAppInternal / actionPerformer 分发。
+        if customModeActionResolver?(button, trigger) != nil {
+            let normalized = configured.normalizedForExecution
+            if normalized.action.isAppInternal {
+                onInternalAction?(profileID, normalized.action)
+            } else {
+                _ = actionPerformer(button, trigger, normalized)
+            }
+            AppLogger.shared.write(
+                "CUSTOM MODE phase=action button=\(button.rawValue) trigger=\(trigger.rawValue) action=\(normalized.action.rawValue)"
+            )
+            return true
+        }
+        if let resolution = mouseModeResolver?(profileID, button, trigger) {
+            guard case .action(let configured) = resolution else { return true }
+            guard MouseModeController.shared.perform(configured) else {
+                diagnosticLogger(
+                    "MOUSE MODE action failed button=\(button.rawValue) action=\(configured.action.rawValue)"
+                )
+                return false
+            }
+            AppLogger.shared.write(
+                "MOUSE MODE phase=action button=\(button.rawValue) trigger=\(trigger.rawValue) action=\(configured.action.rawValue)"
+            )
+            return true
+        }
         if appSwitcherSession.isActive, button == .tv {
             return performAppSwitcherAction(for: button, trigger: trigger)
         }
